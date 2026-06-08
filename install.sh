@@ -34,7 +34,7 @@ if ! grep -qF "${SHELLRC_LINE}" "${SHELLRC}" 2>/dev/null; then
     echo "# dotenv-sec" >> "${SHELLRC}"
     echo "${SHELLRC_LINE}" >> "${SHELLRC}"
     echo 'export DOTSEC_HOME="$HOME/Documents/github.com/Dxsk/dotenv-sec"' >> "${SHELLRC}"
-    echo 'eval "$(dotsec completions zsh 2>/dev/null)"' >> "${SHELLRC}"
+    echo 'source <(dotsec completions zsh 2>/dev/null)' >> "${SHELLRC}"
     echo "[+] Shell integration added to ${SHELLRC}"
 else
     echo "[i] Shell integration already in ${SHELLRC}"

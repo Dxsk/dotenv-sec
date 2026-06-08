@@ -602,6 +602,7 @@ case "${1:-help}" in
     tmux)         shift; cmd_tmux "$@";;
     log)          shift; cmd_log "$@";;
     info)         cmd_info;;
+    completions)  shift; exec "${DOTSEC_HOME}/bin/dotsec-completions" "$@";;
     help|--help|-h) usage;;
     *)            echo -e "${RED}[!] Unknown command: $1${RESET}" >&2; usage;;
 esac

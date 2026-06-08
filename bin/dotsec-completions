@@ -38,7 +38,7 @@ _dotsec_completions() {
 }
 
 case "${1:-}" in
-    zsh) compdef _dotsec_completions dotsec; echo "[+] Zsh completions loaded";;
-    bash) echo "[!] Bash not yet supported, use zsh";;
-    *) echo "Usage: dotsec completions zsh|bash";;
+    zsh) compdef _dotsec_completions dotsec;;
+    bash) echo "[!] Bash not yet supported, use zsh" >&2;;
+    *) echo "Usage: dotsec completions zsh|bash" >&2;;
 esac
