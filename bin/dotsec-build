@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# ─── dotsec build ────────────────────────────────────────
+# Build all docker images
+set -euo pipefail
+
+DOTSEC_HOME="${DOTSEC_HOME:-$HOME/Documents/github.com/Dxsk/dotenv-sec}"
+
+echo "[*] Building mitmproxy..."
+docker build -t dotenv-sec/mitmproxy:latest "${DOTSEC_HOME}/mitmproxy"
+
+echo "[*] Building chromium..."
+docker build -t dotenv-sec/chromium:latest "${DOTSEC_HOME}/chromium"
+
+echo -e "\033[1;32m[+] All images built\033[0m"

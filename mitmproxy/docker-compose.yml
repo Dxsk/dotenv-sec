@@ -1,0 +1,19 @@
+services:
+  mitmproxy:
+    build: .
+    image: dotenv-sec/mitmproxy:latest
+    container_name: mitmproxy-${TARGET:-default}
+    ports:
+      - "${PROXY_PORT:-8080}:8080"
+      - "${WEB_PORT:-8081}:8081"
+    volumes:
+      - ./certs:/data/certs
+      - ./flows:/data/flows
+    restart: unless-stopped
+    networks:
+      - proxy-net
+
+networks:
+  proxy-net:
+    name: dotsec-proxy-net
+    external: true

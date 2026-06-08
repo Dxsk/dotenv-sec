@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# ─── dotsec completions ─────────────────────────────────
+# Generate shell completions for dotsec
+# Usage: source <(dotsec completions zsh)
+
+_dotsec_completions() {
+    local commands="new load unload list proxy browser exegol tmux log info help"
+    local proxy_sub="up down status logs"
+    local exegol_sub="exec shell"
+    local tmux_sub="attach create ls"
+
+    if [[ $words[CURRENT-1] == "dotsec" ]]; then
+        compadd -- $commands
+    elif [[ $words[CURRENT-2] == "dotsec" ]]; then
+        case $words[CURRENT-1] in
+            proxy)    compadd -- $proxy_sub;;
+            exegol)   compadd -- $exegol_sub;;
+            tmux)     compadd -- $tmux_sub;;
+            load|browser)
+                local targets=()
+                for d in /workspace/*/.env(N); do
+                    targets+=($(basename $(dirname $d)))
+                done
+                compadd -- $targets
+                ;;
+        esac
+    fi
+}
+
+case "${1:-}" in
+    zsh) compdef _dotsec_completions dotsec; echo "[+] Zsh completions loaded";;
+    bash) echo "[!] Bash not yet supported, use zsh";;
+    *) echo "Usage: dotsec completions zsh|bash";;
+esac

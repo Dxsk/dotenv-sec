@@ -1,0 +1,20 @@
+# ─── dotenv-sec :: Global defaults ───────────────────────
+# ~/.config/dotenvsec/config
+# Sourced by dotsec on every run.
+# Per-engagement /workspace/$TARGET/.env overrides these.
+
+# ── Default Exegol container ────────────────────────────
+export EXEGOL_CONTAINER="exegol"
+
+# ── Default Bug Bounty User-Agent ───────────────────────
+export UA="H1-yourhandle"
+
+# ── Default proxy ports ─────────────────────────────────
+export PROXY_PORT="8080"
+export WEB_PORT="8081"
+
+# ── Default workspace root ──────────────────────────────
+export WORKSPACE_ROOT="/workspace"
+
+# ── platform preference (h1, ywh, inti, custom) ─────────
+export PLATFORM="h1"
