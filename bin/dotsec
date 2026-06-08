@@ -7,8 +7,10 @@ DOTSEC_CONFIG="${DOTSEC_CONFIG:-$HOME/.config/dotenvsec}"
 VERSION="0.1.0"
 
 # ── Colors ──────────────────────────────────────────────
-BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
-BLUE=$'\033[34m'; CYAN=$'\033[36m'; RESET=$'\033[0m'
+BOLD=$'\033[1m'; DIM=$'\033[2m'
+RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
+BLUE=$'\033[34m'; MAGENTA=$'\033[35m'; CYAN=$'\033[36m'
+RESET=$'\033[0m'
 
 # ── Shared helpers ──────────────────────────────────────
 __docker_network_ensure() {
@@ -54,39 +56,43 @@ __require_tmux() {
 # ── Help ────────────────────────────────────────────────
 usage() {
     cat <<EOF
-${BOLD}dotsec${RESET} v${VERSION}: Pentest environment launcher
+${BOLD}${GREEN}dotsec${RESET} ${DIM}v${VERSION}${RESET} — ${DIM}Pentest environment launcher${RESET}
 
 ${BOLD}USAGE${RESET}
-  dotsec <command> [args]
+  ${GREEN}dotsec${RESET} ${DIM}<command> [args]${RESET}
 
-${BOLD}COMMANDS${RESET}
-  ${GREEN}new${RESET}     <target> [domain]    Init engagement workspace + tmux + proxy
-  ${GREEN}load${RESET}    <target>             Source .env.engagement
-  ${GREEN}unload${RESET}                       Unset engagement vars
-  ${GREEN}list${RESET}                         List all engagements in workspace
+${BOLD}${CYAN}ENGAGEMENT${RESET}
+  ${GREEN}new${RESET}      ${DIM}<target> [domain]${RESET}    Init workspace + tmux + proxy
+  ${GREEN}load${RESET}     ${DIM}<target>${RESET}             Source .env.engagement
+  ${GREEN}unload${RESET}                         Unset engagement vars
+  ${GREEN}list${RESET}                           List all engagements
 
-  ${GREEN}spawn${RESET}   [session]             Instant pentest tmux session (6 windows)
-  ${GREEN}proxy${RESET}   up|down|status|logs  Manage mitmproxy container
-  ${GREEN}browser${RESET} [target]             Launch Chromium (routed through proxy)
-  ${GREEN}board${RESET}   up|down|reload|status Homer dashboard (http://127.0.0.1:9997)
-  ${GREEN}dashboard${RESET}                       Alias for board
-  ${GREEN}exegol${RESET}  exec <cmd>           Run command inside Exegol container
-  ${GREEN}exegol${RESET}  shell                Open shell in Exegol
-  ${GREEN}exegol${RESET}  setup                Install uv + pnpm inside Exegol
+${BOLD}${YELLOW}PROXY & BROWSER${RESET}
+  ${GREEN}proxy${RESET}    ${DIM}up|down|status|logs${RESET}  Manage mitmproxy container
+  ${GREEN}browser${RESET}  ${DIM}[target]${RESET}             Launch Chromium routed through proxy
 
-  ${GREEN}tmux${RESET}    attach|create|kill|ls tmux session management
-  ${GREEN}log${RESET}     <cmd...>             Run command + log to commands.log
+${BOLD}${MAGENTA}DASHBOARD${RESET}
+  ${GREEN}board${RESET}    ${DIM}up|down|reload|status${RESET}  Homer dashboard ${DIM}(127.0.0.1:9997)${RESET}
 
-  ${GREEN}info${RESET}                         Show current engagement info
-  ${GREEN}help${RESET}                         This message
+${BOLD}${BLUE}WORKSPACE${RESET}
+  ${GREEN}spawn${RESET}    ${DIM}[session]${RESET}             Instant 6-window pentest tmux
+  ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux session management
+  ${GREEN}log${RESET}      ${DIM}<cmd...>${RESET}             Run + log to commands.log
+
+${BOLD}${MAGENTA}EXEGOL${RESET}
+  ${GREEN}exegol${RESET}   ${DIM}exec|shell|setup${RESET}     Run commands inside Exegol
+
+${BOLD}${CYAN}INFO${RESET}
+  ${GREEN}info${RESET}                           Show current engagement
+  ${GREEN}help${RESET}                           This message
 
 ${BOLD}QUICKSTART${RESET}
-  dotsec new mytarget example.com
-  dotsec proxy up
-  dotsec browser
+  ${GREEN}dotsec${RESET} new mytarget example.com
+  ${GREEN}dotsec${RESET} proxy up
+  ${GREEN}dotsec${RESET} browser
 
 ${BOLD}CONFIG${RESET}
-  DOTSEC_HOME=${DOTSEC_HOME}
+  ${DIM}DOTSEC_HOME${RESET} = ${DOTSEC_HOME}
 EOF
     exit 0
 }
@@ -100,7 +106,8 @@ proxy_up() {
     __require_docker
     __docker_network_ensure
 
-    printf '%b\n' "${CYAN}[*] Starting mitmproxy for ${target}...${RESET}"
+    printf '%b\n' "${YELLOW}[*]${RESET} ${DIM}Starting mitmproxy for${RESET} ${CYAN}${target}${RESET}..."
+
     local ws="${WORKSPACE:-/workspace/${target}}"
     mkdir -p "${ws}/proxy/certs" "${ws}/proxy/flows"
     TARGET="${target}" \
@@ -111,10 +118,9 @@ proxy_up() {
         docker compose -f "${DOTSEC_HOME}/mitmproxy/docker-compose.yml" \
         --project-name "dotsec-${target}" up -d --build
 
-    printf '%b\n' "${GREEN}[+] Proxy ready${RESET}"
-    printf '%b\n' "  Proxy  → ${YELLOW}http://127.0.0.1:${proxy_port}${RESET}"
-    printf '%b\n' "  Web UI → ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
-    printf '%b\n' "  CA PEM → ${YELLOW}${ws}/proxy/certs/mitmproxy-ca-cert.pem${RESET}"
+    printf '%b\n' "  ${GREEN}Proxy${RESET}   ${YELLOW}http://127.0.0.1:${proxy_port}${RESET}"
+    printf '%b\n' "  ${GREEN}Web UI${RESET}  ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
+    printf '%b\n' "  ${GREEN}CA PEM${RESET}  ${DIM}${ws}/proxy/certs/mitmproxy-ca-cert.pem${RESET}"
 
     __homer_reload_if_running
 }
@@ -123,7 +129,7 @@ proxy_down() {
     local target="${TARGET:-default}"
     docker compose -f "${DOTSEC_HOME}/mitmproxy/docker-compose.yml" \
         --project-name "dotsec-${target}" down
-    printf '%b\n' "${GREEN}[+] Proxy stopped for ${target}${RESET}"
+    printf '%b\n' "${DIM}Proxy stopped for${RESET} ${CYAN}${target}${RESET}"
 }
 
 proxy_status() {
@@ -175,16 +181,16 @@ cmd_new() {
 
     local ws="/workspace/${target}"
 
-    printf '%b\n' "${BOLD}${GREEN}╔══════════════════════════════════════╗${RESET}"
-    printf '%b\n' "${BOLD}${GREEN}║  New Engagement: ${target}${RESET}"
-    printf '%b\n' "${BOLD}${GREEN}╚══════════════════════════════════════╝${RESET}"
+    printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
+    printf '%b\n' "  ${BOLD}${CYAN}New Engagement${RESET}  ${GREEN}▸${RESET} ${BOLD}${target}${RESET}  ${DIM}${domain}${RESET}"
+    printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
 
     # 1. Workspace structure
-    printf '%b\n' "${CYAN}[1/4] Creating workspace...${RESET}"
+    printf '%b\n' "  ${DIM}[1/4]${RESET} ${DIM}Creating workspace...${RESET}"
     mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor}}
 
     # 2. Copy and fill .env
-    printf '%b\n' "${CYAN}[2/4] Setting up dotenv...${RESET}"
+    printf '%b\n' "  ${DIM}[2/4]${RESET} ${DIM}Setting up dotenv...${RESET}"
     cp "${DOTSEC_HOME}/templates/.env.engagement" "${ws}/.env"
     sed -i "s/acme-corp/${target}/g" "${ws}/.env"
     sed -i "s/acme-corp\.com/${domain}/g" "${ws}/.env"
@@ -217,22 +223,24 @@ TODO
 DOC
 
     # 4. tmux session
-    printf '%b\n' "${CYAN}[3/4] Creating tmux session...${RESET}"
+    printf '%b\n' "  ${DIM}[3/4]${RESET} ${DIM}Creating tmux session...${RESET}"
     __tmux_spawn_session "${target}" "source ${ws}/.env && export TARGET=${target} DOMAIN=${domain}"
 
     # 5. Proxy setup
-    printf '%b\n' "${CYAN}[4/4] Preparing proxy links...${RESET}"
+    printf '%b\n' "  ${DIM}[4/4]${RESET} ${DIM}Preparing proxy links...${RESET}"
     mkdir -p "${ws}/proxy" && ln -sfn "${ws}/proxy" "$(pwd)/proxy-${target}" 2>/dev/null || true
 
     echo ""
-    printf '%b\n' "${BOLD}${GREEN}[✓] Engagement '${target}' ready!${RESET}"
-    echo ""
-    printf '%b\n' "  ${BOLD}Workspace${RESET}  → ${ws}"
-    printf '%b\n' "  ${BOLD}Load env${RESET}    → ${YELLOW}dotsec load ${target}${RESET}"
-    printf '%b\n' "  ${BOLD}Start proxy${RESET}  → ${YELLOW}dotsec proxy up${RESET}"
-    printf '%b\n' "  ${BOLD}Attach tmux${RESET}  → ${YELLOW}dotsec tmux attach${RESET}"
-    printf '%b\n' "  ${BOLD}Browser${RESET}     → ${YELLOW}dotsec browser${RESET}"
-    printf '%b\n' "  ${BOLD}Dashboard${RESET}   → ${YELLOW}dotsec board reload${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}┌─ Engagement: ${CYAN}${target}${GREEN} ─────────────────┐${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}                                               ${BOLD}${GREEN}│${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Workspace${RESET}   → ${CYAN}${ws}${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Load env${RESET}    → ${YELLOW}dotsec load ${target}${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Proxy${RESET}       → ${YELLOW}dotsec proxy up${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Attach tmux${RESET}  → ${YELLOW}dotsec tmux attach${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Browser${RESET}     → ${YELLOW}dotsec browser${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Dashboard${RESET}   → ${YELLOW}dotsec board reload${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}                                               ${BOLD}${GREEN}│${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}└───────────────────────────────────────────────┘${RESET}"
     echo ""
 
     __homer_reload_if_running
@@ -256,21 +264,21 @@ cmd_load() {
         exit 1
     fi
     source "$envfile"
-    printf '%b\n' "${GREEN}[+] Loaded engagement: ${TARGET}${RESET}"
-    printf '%b\n' "  Workspace → ${WORKSPACE}"
-    printf '%b\n' "  Proxy    → ${HTTP_PROXY}"
-    printf '%b\n' "  UA       → ${UA}"
+    printf '%b\n' "  ${GREEN}${BOLD}${TARGET}${RESET} ${DIM}→${RESET} ${DIM}${WORKSPACE}${RESET}"
+    printf '%b\n' "  ${DIM}Proxy${RESET}  ${YELLOW}${HTTP_PROXY}${RESET}"
+    printf '%b\n' "  ${DIM}UA${RESET}     ${MAGENTA}${UA}${RESET}"
     echo ""
-    printf '%b\n' "To keep vars in your shell: ${YELLOW}source <(dotsec load ${target})${RESET}"
+    printf '%b\n' "${DIM}To keep vars persistent:${RESET} ${YELLOW}source <(dotsec load ${target})${RESET}"
 }
 
 cmd_unload() {
     unset TARGET DOMAIN IP UA PROGRAM PROXY_PORT WEB_PORT HTTP_PROXY HTTPS_PROXY NO_PROXY WORKSPACE
-    printf '%b\n' "${GREEN}[+] Engagement vars unset${RESET}"
+    printf '%b\n' "${DIM}Engagement vars unset${RESET}"
 }
 
 cmd_list() {
-    printf '%b\n' "${BOLD}Engagements:${RESET}"
+    printf '%b\n' "${BOLD}${CYAN}Engagements${RESET}"
+    local found=0
     for d in /workspace/*/; do
         [[ -d "$d" ]] || continue
         local name domain
@@ -279,11 +287,13 @@ cmd_list() {
         if [[ -f "$env" ]]; then
             domain=$(__env_domain "$env")
             [[ -z "$domain" ]] && domain="?"
-            printf '%b\n' "  ${CYAN}${name}${RESET}  → ${domain}"
+            printf '%b\n' "  ${GREEN}${name}${RESET}  ${DIM}→${RESET} ${DIM}${domain}${RESET}"
         else
-            printf '%b\n' "  ${CYAN}${name}${RESET}  (no .env)"
+            printf '%b\n' "  ${DIM}${name}${RESET}  ${DIM}(no .env)${RESET}"
         fi
+        found=1
     done
+    [[ $found -eq 0 ]] && printf '%b\n' "  ${DIM}No engagements yet.${RESET} ${YELLOW}dotsec new <target>${RESET}"
 }
 
 # ── Browser ──────────────────────────────────────────────
@@ -298,7 +308,7 @@ cmd_browser() {
 
     # Ensure proxy is up
     if ! docker ps --filter "name=mitmproxy-${target}" --format '{{.Names}}' | grep -q .; then
-        printf '%b\n' "${YELLOW}[!] Proxy not running. Starting...${RESET}" >&2
+        printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}Proxy not running. Starting...${RESET}" >&2
         TARGET="${target}" proxy_up
     fi
 
@@ -330,10 +340,10 @@ cmd_exegol() {
             docker exec ${docker_tty} "$container" zsh
             ;;
         setup)
-            printf '%b\n' "${CYAN}[*] Running Exegol tool setup (uv + pnpm)...${RESET}"
+            printf '%b\n' "${DIM}Running Exegol tool setup (uv + pnpm)...${RESET}"
             if ! docker ps --filter "name=^${container}$" --format '{{.Names}}' | grep -q .; then
-                printf '%b\n' "${YELLOW}[!] Container '${container}' is not running.${RESET}" >&2
-                printf '%b\n' "  Start it with: ${YELLOW}exegol start ${container}${RESET}" >&2
+                printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}Container${RESET} ${YELLOW}${container}${RESET} ${DIM}not running.${RESET}" >&2
+                printf '%b\n' "  ${DIM}Start it with:${RESET} ${YELLOW}exegol start ${container}${RESET}" >&2
                 exit 1
             fi
             docker exec ${docker_tty} "$container" bash /opt/resources/dotenv-sec/setup.sh
@@ -354,14 +364,14 @@ cmd_spawn() {
 
     __require_tmux
 
-    printf '%b\n' "${CYAN}[*] Spawning tmux session: ${session_name}${RESET}"
+    printf '%b\n' "${DIM}Spawning tmux session:${RESET} ${CYAN}${session_name}${RESET}"
 
     local spawn_cmd=""
     [[ -n "$ws" ]] && [[ -f "$envfile" ]] && spawn_cmd="source ${envfile}; clear"
 
     __tmux_spawn_session "$session_name" "$spawn_cmd"
 
-    [[ -n "$spawn_cmd" ]] && printf '%b\n' "  ${GREEN}Env loaded${RESET} → ${ws}/.env"
+    [[ -n "$spawn_cmd" ]] && printf '%b\n' "  ${GREEN}env${RESET} ${DIM}loaded →${RESET} ${DIM}${ws}/.env${RESET}"
 
     tmux attach -t "$session_name"
 }
@@ -382,12 +392,12 @@ cmd_tmux() {
         create)
             [[ -z "$target" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec tmux create <target>${RESET}" >&2; exit 1; }
             __tmux_spawn_session "$target"
-            printf '%b\n' "${GREEN}[+] Session ${target} created${RESET}"
+            printf '%b\n' "${GREEN}Session${RESET} ${CYAN}${target}${RESET} ${DIM}created${RESET}"
             ;;
         kill|k)
             [[ -z "$target" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec tmux kill <target>${RESET}" >&2; exit 1; }
             tmux kill-session -t "$target"
-            printf '%b\n' "${GREEN}[+] Session ${target} killed${RESET}"
+            printf '%b\n' "${DIM}Session${RESET} ${CYAN}${target}${RESET} ${DIM}killed${RESET}"
             ;;
         ls|list)
             tmux ls 2>/dev/null || echo "No sessions"
@@ -525,29 +535,28 @@ cmd_dashboard() {
 
     case "$action" in
         up|start)
-            printf '%b\n' "${CYAN}[*] Generating Homer config...${RESET}"
+            printf '%b\n' "${DIM}Generating Homer config...${RESET}"
             __homer_gen_config
 
-            printf '%b\n' "${CYAN}[*] Starting Homer dashboard...${RESET}"
+            printf '%b\n' "${DIM}Starting Homer dashboard...${RESET}"
             __docker_network_ensure
 
             docker compose -f "${DOTSEC_HOME}/homer/docker-compose.yml" \
                 --project-name "dotsec-homer" up -d
 
-            printf '%b\n' "${GREEN}[+] Dashboard ready${RESET}"
-            printf '%b\n' "  → ${YELLOW}http://127.0.0.1:${HOMER_PORT:-9997}${RESET}"
+            printf '%b\n' "  ${GREEN}Dashboard${RESET} ${YELLOW}http://127.0.0.1:${HOMER_PORT:-9997}${RESET}"
             ;;
         down|stop)
             docker compose -f "${DOTSEC_HOME}/homer/docker-compose.yml" \
                 --project-name "dotsec-homer" down
-            printf '%b\n' "${GREEN}[+] Dashboard stopped${RESET}"
+            printf '%b\n' "${DIM}Dashboard stopped${RESET}"
             ;;
         reload)
-            printf '%b\n' "${CYAN}[*] Regenerating config + restarting...${RESET}"
+            printf '%b\n' "${DIM}Regenerating config + restarting...${RESET}"
             __homer_gen_config
             docker restart dotsec-homer 2>/dev/null || \
-                { printf '%b\n' "${YELLOW}[!] Homer not running, starting...${RESET}" >&2; cmd_dashboard up; }
-            printf '%b\n' "${GREEN}[+] Dashboard reloaded${RESET}"
+                { printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}Homer not running, starting...${RESET}" >&2; cmd_dashboard up; }
+            printf '%b\n' "${DIM}Dashboard reloaded${RESET}"
             ;;
         status)
             docker ps --filter "name=dotsec-homer" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -558,17 +567,17 @@ cmd_dashboard() {
     esac
 }
 cmd_info() {
-    printf '%b\n' "${BOLD}dotsec v${VERSION}${RESET}"
+    printf '%b\n' "${BOLD}${GREEN}dotsec${RESET} ${DIM}v${VERSION}${RESET}"
     echo ""
-    printf '%b\n' "  ${BOLD}TARGET${RESET}     = ${TARGET:-not set}"
-    printf '%b\n' "  ${BOLD}DOMAIN${RESET}     = ${DOMAIN:-not set}"
-    printf '%b\n' "  ${BOLD}WORKSPACE${RESET}  = ${WORKSPACE:-not set}"
-    printf '%b\n' "  ${BOLD}HTTP_PROXY${RESET} = ${HTTP_PROXY:-not set}"
-    printf '%b\n' "  ${BOLD}UA${RESET}         = ${UA:-not set}"
-    printf '%b\n' "  ${BOLD}EXEGOL${RESET}     = ${EXEGOL_CONTAINER:-not set}"
+    printf '%b\n' "  ${DIM}TARGET${RESET}      ${GREEN}${TARGET:-${DIM}not set${RESET}}${RESET}"
+    printf '%b\n' "  ${DIM}DOMAIN${RESET}      ${GREEN}${DOMAIN:-${DIM}not set${RESET}}${RESET}"
+    printf '%b\n' "  ${DIM}WORKSPACE${RESET}   ${CYAN}${WORKSPACE:-${DIM}not set${RESET}}${RESET}"
+    printf '%b\n' "  ${DIM}HTTP_PROXY${RESET}  ${YELLOW}${HTTP_PROXY:-${DIM}not set${RESET}}${RESET}"
+    printf '%b\n' "  ${DIM}UA${RESET}          ${MAGENTA}${UA:-${DIM}not set${RESET}}${RESET}"
+    printf '%b\n' "  ${DIM}EXEGOL${RESET}      ${BLUE}${EXEGOL_CONTAINER:-${DIM}not set${RESET}}${RESET}"
     echo ""
-    printf '%b\n' "  ${BOLD}DOTSEC_HOME${RESET} = ${DOTSEC_HOME}"
-    printf '%b\n' "  ${BOLD}DOTSEC_CONFIG${RESET}= ${DOTSEC_CONFIG} $([ -f "${DOTSEC_CONFIG}/config" ] && echo '(loaded)' || echo '(missing)')"
+    printf '%b\n' "  ${DIM}DOTSEC_HOME${RESET}    ${DIM}${DOTSEC_HOME}${RESET}"
+    printf '%b\n' "  ${DIM}DOTSEC_CONFIG${RESET}  ${DIM}${DOTSEC_CONFIG}${RESET} $([ -f "${DOTSEC_CONFIG}/config" ] && printf '%b' "${GREEN}(loaded)${RESET}" || printf '%b' "${RED}(missing)${RESET}")"
 }
 
 # ── Routeur ───────────────────────────────────────────────
