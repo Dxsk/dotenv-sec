@@ -1,4 +1,4 @@
-FROM archlinux:latest
+FROM archlinux:multilib-devel-20260607.0.541780@sha256:e6c4eacdc7d29cf643f18e4cfb7a31a2e893a58812fb848ba082f8998e7ea79d
 
 # mitmproxy + runtime deps (glibc = pre-built wheels, no compilation needed)
 RUN pacman -Syu --noconfirm python python-pip python-cryptography && \
