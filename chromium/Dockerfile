@@ -1,23 +1,20 @@
-FROM alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+FROM archlinux:latest
 
-# Pinned Chromium + runtime deps
-RUN apk add --no-cache \
-    chromium~=134 \
-    chromium-chromedriver~=134 \
-    nss~=3.107 \
-    nss-tools~=3.107 \
-    freetype~=2.13 \
-    harfbuzz~=10.1 \
-    ttf-freefont~=20120503 \
-    dbus~=1.15 \
-    xdg-utils~=1.2
+# Chromium + NSS tools for CA trust
+RUN pacman -Syu --noconfirm \
+    chromium \
+    nss \
+    freetype2 \
+    harfbuzz \
+    ttf-freefont \
+    dbus \
+    xdg-utils && \
+    pacman -Scc --noconfirm && rm -rf /var/cache/pacman/pkg/*
 
-# User + CA trust dir (rootless Docker compat)
-RUN adduser -D -h /home/chromium -s /bin/sh chromium && \
+RUN useradd -m -s /bin/sh chromium && \
     mkdir -p /home/chromium/.cache /home/chromium/.config /certs /extensions && \
     chown -R chromium:chromium /home/chromium /certs /extensions && \
-    mkdir -p /usr/local/share/ca-certificates && \
-    # Pre-init NSS cert DB (Chromium uses it, even as root)
+    # Pre-init NSS cert DB for mitmproxy CA
     mkdir -p /root/.pki/nssdb && \
     certutil -N -d sql:/root/.pki/nssdb --empty-password
 

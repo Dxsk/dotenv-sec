@@ -80,7 +80,7 @@ proxy_up() {
     echo -e "${GREEN}[+] Proxy ready${RESET}"
     echo -e "  Proxy  → ${YELLOW}http://127.0.0.1:${proxy_port}${RESET}"
     echo -e "  Web UI → ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
-    echo -e "  CA PEM → ${YELLOW}$(pwd)/certs/mitmproxy-ca.pem${RESET}"
+    echo -e "  CA PEM → ${YELLOW}${ws}/proxy/certs/mitmproxy-ca-cert.pem${RESET}"
 
     # Auto-reload Homer dashboard
     docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q . && {

@@ -8,11 +8,18 @@ if [ -n "$HTTP_PROXY" ]; then
 fi
 
 # Trust mitmproxy CA if mounted
-if [ -f /certs/mitmproxy-ca.pem ]; then
+CA_FILE=""
+if [ -f /certs/mitmproxy-ca-cert.pem ]; then
+    CA_FILE="/certs/mitmproxy-ca-cert.pem"
+elif [ -f /certs/mitmproxy-ca.pem ]; then
+    CA_FILE="/certs/mitmproxy-ca.pem"
+fi
+
+if [ -n "$CA_FILE" ]; then
     echo "[*] Importing mitmproxy CA..."
 
     # System trust store
-    cp /certs/mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy-ca.crt
+    cp "$CA_FILE" /usr/local/share/ca-certificates/mitmproxy-ca.crt
     update-ca-certificates
 
     # Chromium NSS trust store
@@ -20,9 +27,9 @@ if [ -f /certs/mitmproxy-ca.pem ]; then
     mkdir -p "$NSSDB"
     certutil -N -d sql:"$NSSDB" --empty-password 2>/dev/null || true
     certutil -A -d sql:"$NSSDB" -t "C,," -n "mitmproxy-proxy" \
-        -i /certs/mitmproxy-ca.pem 2>/dev/null && \
+        -i "$CA_FILE" 2>/dev/null && \
         echo "[+] CA trusted (system + Chromium NSS)" || \
-        echo "[!] CA trust failed: add --ignore-certificate-errors manually"
+        echo "[!] CA trust failed : add --ignore-certificate-errors manually"
 fi
 
 # If proxy is set and no CA, warn
