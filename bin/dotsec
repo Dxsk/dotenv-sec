@@ -32,12 +32,13 @@ ${BOLD}COMMANDS${RESET}
   ${GREEN}unload${RESET}                       Unset engagement vars
   ${GREEN}list${RESET}                         List all engagements in workspace
 
+  ${GREEN}spawn${RESET}   [session]             Instant pentest tmux session (6 windows)
   ${GREEN}proxy${RESET}   up|down|status|logs  Manage mitmproxy container
   ${GREEN}browser${RESET} [target]             Launch Chromium (routed through proxy)
   ${GREEN}exegol${RESET}  exec <cmd>           Run command inside Exegol container
   ${GREEN}exegol${RESET}  shell                Open shell in Exegol
 
-  ${GREEN}tmux${RESET}    attach|create|ls     tmux session management for target
+  ${GREEN}tmux${RESET}    attach|create|kill|ls tmux session management
   ${GREEN}log${RESET}     <cmd...>             Run command + log to commands.log
 
   ${GREEN}info${RESET}                         Show current engagement info
@@ -261,6 +262,44 @@ cmd_exegol() {
     esac
 }
 
+# ── Spawn ─────────────────────────────────────────────────
+# Instant pentest-ready tmux session, with or without engagement loaded
+cmd_spawn() {
+    local session_name="${1:-${TARGET:-pentest}}"
+    local ws="${WORKSPACE:-}"
+    local envfile="${ws}/.env"
+
+    # Kill existing session with same name to get a fresh one
+    tmux has-session -t "$session_name" 2>/dev/null && tmux kill-session -t "$session_name"
+
+    echo -e "${CYAN}[*] Spawning tmux session: ${session_name}${RESET}"
+
+    # Create session with 6 windows
+    tmux new-session -d -s "$session_name" -n recon
+    tmux new-window  -t "$session_name" -n scan
+    tmux new-window  -t "$session_name" -n exploit
+    tmux new-window  -t "$session_name" -n post
+    tmux new-window  -t "$session_name" -n report
+    tmux new-window  -t "$session_name" -n monitor
+
+    # Source engagement .env in each window if available
+    if [[ -n "$ws" ]] && [[ -f "$envfile" ]]; then
+        local load_cmd="source ${envfile}"
+        for w in recon scan exploit post report monitor; do
+            tmux send-keys -t "${session_name}:${w}" "$load_cmd; clear" Enter
+        done
+        echo -e "  ${GREEN}Env loaded${RESET} → ${ws}/.env"
+    fi
+
+    # Status bar: highlight session name
+    tmux set-option -t "$session_name" status-right "#[fg=cyan]${session_name}#[default] | %H:%M"
+    tmux set-option -t "$session_name" status-style "bg=#1a1a2e,fg=#e0e0e0"
+    tmux set-option -t "$session_name" window-status-current-style "bg=#00ff87,fg=#0a0a0a,bold"
+
+    # Attach
+    tmux attach -t "$session_name"
+}
+
 # ── Tmux ─────────────────────────────────────────────────
 cmd_tmux() {
     local action="${1:-}"; shift || true
@@ -282,11 +321,16 @@ cmd_tmux() {
             tmux new-window -t "$target" -n monitor
             echo -e "${GREEN}[+] Session ${target} created${RESET}"
             ;;
+        kill|k)
+            [[ -z "$target" ]] && { echo -e "${RED}[!] Usage: dotsec tmux kill <target>${RESET}"; exit 1; }
+            tmux kill-session -t "$target"
+            echo -e "${GREEN}[+] Session ${target} killed${RESET}"
+            ;;
         ls|list)
             tmux ls 2>/dev/null || echo "No sessions"
             ;;
         *)
-            echo -e "${RED}[!] Usage: dotsec tmux attach|create|ls${RESET}"
+            echo -e "${RED}[!] Usage: dotsec tmux attach|create|kill|ls${RESET}"
             ;;
     esac
 }
@@ -321,6 +365,8 @@ case "${1:-help}" in
     load)         shift; cmd_load "$@";;
     unload)       cmd_unload;;
     list|ls)      cmd_list;;
+
+    spawn)        shift; cmd_spawn "$@";;
 
     proxy)
         case "${2:-status}" in
