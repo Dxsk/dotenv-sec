@@ -12,7 +12,7 @@ if [ ! -f /data/certs/mitmproxy-ca.pem ]; then
     echo "[+] CA cert ready at /data/certs/mitmproxy-ca.pem"
 fi
 
-echo "[*] Starting mitmweb — proxy:0.0.0.0:8080 | web:0.0.0.0:8081"
+echo "[*] Starting mitmweb: proxy:0.0.0.0:8080 | web:0.0.0.0:8081"
 exec mitmweb \
     --set confdir=/data/certs \
     --mode regular@8080 \

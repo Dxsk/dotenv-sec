@@ -10,8 +10,8 @@ export EXEGOL_CONTAINER="exegol"
 export UA="H1-yourhandle"
 
 # ── Default proxy ports ─────────────────────────────────
-export PROXY_PORT="8080"
-export WEB_PORT="8081"
+export PROXY_PORT="9999"
+export WEB_PORT="9998"
 
 # ── Default workspace root ──────────────────────────────
 export WORKSPACE_ROOT="/workspace"

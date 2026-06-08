@@ -21,7 +21,7 @@ __dotsec_load_global
 # ── Help ────────────────────────────────────────────────
 usage() {
     cat <<EOF
-${BOLD}dotsec${RESET} v${VERSION} — Pentest environment launcher
+${BOLD}dotsec${RESET} v${VERSION}: Pentest environment launcher
 
 ${BOLD}USAGE${RESET}
   dotsec <command> [args]
@@ -35,6 +35,7 @@ ${BOLD}COMMANDS${RESET}
   ${GREEN}spawn${RESET}   [session]             Instant pentest tmux session (6 windows)
   ${GREEN}proxy${RESET}   up|down|status|logs  Manage mitmproxy container
   ${GREEN}browser${RESET} [target]             Launch Chromium (routed through proxy)
+  ${GREEN}board${RESET}   up|down|reload|status Homer dashboard (http://127.0.0.1:80)
   ${GREEN}exegol${RESET}  exec <cmd>           Run command inside Exegol container
   ${GREEN}exegol${RESET}  shell                Open shell in Exegol
 
@@ -58,8 +59,8 @@ EOF
 # ── Proxy commands ──────────────────────────────────────
 proxy_up() {
     local target="${TARGET:-default}"
-    local proxy_port="${PROXY_PORT:-8080}"
-    local web_port="${WEB_PORT:-8081}"
+    local proxy_port="${PROXY_PORT:-9999}"
+    local web_port="${WEB_PORT:-9998}"
 
     # Create docker network if not exists
     docker network inspect dotsec-proxy-net &>/dev/null || \
@@ -80,6 +81,12 @@ proxy_up() {
     echo -e "  Proxy  → ${YELLOW}http://127.0.0.1:${proxy_port}${RESET}"
     echo -e "  Web UI → ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
     echo -e "  CA PEM → ${YELLOW}$(pwd)/certs/mitmproxy-ca.pem${RESET}"
+
+    # Auto-reload Homer dashboard
+    docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q . && {
+        __homer_gen_config >/dev/null 2>&1
+        docker restart dotsec-homer >/dev/null 2>&1 || true
+    }
 }
 
 proxy_down() {
@@ -130,8 +137,8 @@ cmd_new() {
     __dotsec_load_global
     [[ -n "${UA:-}" ]] && sed -i "s|H1-yourhandle|${UA}|g" "${ws}/.env"
     [[ -n "${EXEGOL_CONTAINER:-}" ]] && sed -i "s|exegol-default|${EXEGOL_CONTAINER}|g" "${ws}/.env"
-    [[ -n "${PROXY_PORT:-}" ]] && sed -i "s|PROXY_PORT=\"8080\"|PROXY_PORT=\"${PROXY_PORT}\"|g" "${ws}/.env"
-    [[ -n "${WEB_PORT:-}" ]] && sed -i "s|WEB_PORT=\"8081\"|WEB_PORT=\"${WEB_PORT}\"|g" "${ws}/.env"
+    [[ -n "${PROXY_PORT:-}" ]] && sed -i "s|PROXY_PORT=\"9999\"|PROXY_PORT=\"${PROXY_PORT}\"|g" "${ws}/.env"
+    [[ -n "${WEB_PORT:-}" ]] && sed -i "s|WEB_PORT=\"9998\"|WEB_PORT=\"${WEB_PORT}\"|g" "${ws}/.env"
 
     # 3. ENGAGEMENT.md
     cat > "${ws}/ENGAGEMENT.md" <<DOC
@@ -179,7 +186,14 @@ DOC
     echo -e "  ${BOLD}Start proxy${RESET}  → ${YELLOW}dotsec proxy up${RESET}"
     echo -e "  ${BOLD}Attach tmux${RESET}  → ${YELLOW}dotsec tmux attach${RESET}"
     echo -e "  ${BOLD}Browser${RESET}     → ${YELLOW}dotsec browser${RESET}"
+    echo -e "  ${BOLD}Dashboard${RESET}   → ${YELLOW}dotsec board reload${RESET}"
     echo ""
+
+    # Auto-reload Homer if running
+    docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q . && {
+        __homer_gen_config >/dev/null 2>&1
+        docker restart dotsec-homer >/dev/null 2>&1 || true
+    }
 }
 
 cmd_load() {
@@ -350,7 +364,155 @@ cmd_log() {
     eval "$@"
 }
 
-# ── Info ─────────────────────────────────────────────────
+# ── Dashboard (Homer) ────────────────────────────────────
+__homer_gen_config() {
+    local config="${DOTSEC_HOME}/homer/config.yml"
+    local base="${DOTSEC_HOME}/homer/config.base.yml"
+
+    # Use base template if available, else inline
+    if [[ -f "$base" ]]; then
+        cp "$base" "$config"
+    else
+        cat > "$config" <<'YAML'
+---
+title: "dotenv-sec"
+subtitle: "Pentest Dashboard"
+logo: "assets/logo.png"
+header: true
+footer: false
+columns: "auto"
+connectivityCheck: true
+theme: dark
+colors:
+  light:
+    highlight-primary: "#00ff87"
+    highlight-secondary: "#00d4ff"
+    background: "#0a0a0f"
+    card-background: "#1a1a2e"
+    text: "#e0e0e0"
+    text-header: "#00ff87"
+    text-title: "#ffffff"
+    text-subtitle: "#ccd6f6"
+    card-shadow: "rgba(0,255,135,0.1)"
+    link: "#00d4ff"
+    link-hover: "#00ff87"
+  dark:
+    highlight-primary: "#00ff87"
+    highlight-secondary: "#00d4ff"
+    background: "#0a0a0f"
+    card-background: "#1a1a2e"
+    text: "#e0e0e0"
+    text-header: "#00ff87"
+    text-title: "#ffffff"
+    text-subtitle: "#ccd6f6"
+    card-shadow: "rgba(0,255,135,0.1)"
+    link: "#00d4ff"
+    link-hover: "#00ff87"
+YAML
+    fi
+
+    # Inject services
+    cat >> "$config" <<YAML
+
+services:
+YAML
+
+    # Detection d'engagements actifs
+    local found=0
+    for d in /workspace/*/; do
+        [[ -d "$d" ]] || continue
+        local target=$(basename "$d")
+        local envfile="${d}.env"
+        local domain=""
+
+        [[ -f "$envfile" ]] && domain=$(grep -oP 'DOMAIN="?\K[^"]+' "$envfile" 2>/dev/null || echo "")
+        [[ -z "$domain" ]] && domain="${target}"
+
+        # Check if proxy is running
+        local proxy_status="down"
+        docker ps --filter "name=mitmproxy-${target}" --format '{{.Names}}' 2>/dev/null | grep -q . && proxy_status="up"
+
+        cat >> "$config" <<BLOCK
+  - name: "${target}"
+    icon: "fas fa-crosshairs"
+    subtitle: "${domain}"
+    items:
+      - name: "Proxy: ${proxy_status}"
+        icon: "fas fa-network-wired"
+        subtitle: "127.0.0.1:9999"
+        url: "http://127.0.0.1:9999"
+        target: "_blank"
+      - name: "mitmweb UI"
+        icon: "fas fa-globe"
+        subtitle: "127.0.0.1:9998"
+        url: "http://127.0.0.1:9998"
+        target: "_blank"
+      - name: "Workspace"
+        icon: "fas fa-folder"
+        subtitle: "${target}"
+        url: "file:///workspace/${target}"
+      - name: "ENGAGEMENT.md"
+        icon: "fas fa-file-alt"
+        subtitle: "scope, rules"
+        url: "file:///workspace/${target}/ENGAGEMENT.md"
+BLOCK
+        found=1
+    done
+
+    # Fallback if no engagements
+    if [[ $found -eq 0 ]]; then
+        cat >> "$config" <<YAML
+  - name: "No engagements"
+    icon: "fas fa-circle-notch"
+    items:
+      - name: "Create one"
+        icon: "fas fa-plus"
+        subtitle: "dotsec new <target>"
+        url: "#"
+YAML
+    fi
+
+    echo "  → ${config}"
+}
+
+cmd_dashboard() {
+    local action="${1:-status}"
+
+    case "$action" in
+        up|start)
+            echo -e "${CYAN}[*] Generating Homer config...${RESET}"
+            __homer_gen_config
+
+            echo -e "${CYAN}[*] Starting Homer dashboard...${RESET}"
+            docker network inspect dotsec-proxy-net &>/dev/null || \
+                docker network create dotsec-proxy-net
+
+            docker compose -f "${DOTSEC_HOME}/homer/docker-compose.yml" \
+                --project-name "dotsec-homer" up -d
+
+            echo -e "${GREEN}[+] Dashboard ready${RESET}"
+            echo -e "  → ${YELLOW}http://127.0.0.1:${HOMER_PORT:-80}${RESET}"
+            ;;
+        down|stop)
+            docker compose -f "${DOTSEC_HOME}/homer/docker-compose.yml" \
+                --project-name "dotsec-homer" down
+            echo -e "${GREEN}[+] Dashboard stopped${RESET}"
+            ;;
+        reload)
+            echo -e "${CYAN}[*] Regenerating config + restarting...${RESET}"
+            __homer_gen_config
+            docker restart dotsec-homer 2>/dev/null || \
+                { echo -e "${YELLOW}[!] Homer not running, starting...${RESET}"; cmd_dashboard up; }
+            echo -e "${GREEN}[+] Dashboard reloaded${RESET}"
+            ;;
+        status)
+            docker ps --filter "name=dotsec-homer" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            ;;
+        *)
+            echo -e "${RED}[!] Usage: dotsec dashboard up|down|reload|status${RESET}"
+            ;;
+    esac
+}
 cmd_info() {
     echo -e "${BOLD}dotsec v${VERSION}${RESET}"
     echo ""
@@ -385,6 +547,13 @@ case "${1:-help}" in
         ;;
 
     browser)      shift; cmd_browser "$@";;
+    board)
+        case "${2:-status}" in
+            up|start|down|stop|reload|status)
+                shift; cmd_dashboard "$@";;
+            *)  echo -e "${RED}[!] dotsec board up|down|reload|status${RESET}";;
+        esac
+        ;;
     exegol)       shift; cmd_exegol "$@";;
     tmux)         shift; cmd_tmux "$@";;
     log)          shift; cmd_log "$@";;

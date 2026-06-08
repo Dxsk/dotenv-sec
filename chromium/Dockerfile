@@ -5,6 +5,7 @@ RUN apk add --no-cache \
     chromium~=134 \
     chromium-chromedriver~=134 \
     nss~=3.107 \
+    nss-tools~=3.107 \
     freetype~=2.13 \
     harfbuzz~=10.1 \
     ttf-freefont~=20120503 \
@@ -15,7 +16,10 @@ RUN apk add --no-cache \
 RUN adduser -D -h /home/chromium -s /bin/sh chromium && \
     mkdir -p /home/chromium/.cache /home/chromium/.config /certs /extensions && \
     chown -R chromium:chromium /home/chromium /certs /extensions && \
-    mkdir -p /usr/local/share/ca-certificates
+    mkdir -p /usr/local/share/ca-certificates && \
+    # Pre-init NSS cert DB (Chromium uses it, even as root)
+    mkdir -p /root/.pki/nssdb && \
+    certutil -N -d sql:/root/.pki/nssdb --empty-password
 
 ENV CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-features=TranslateUI"
 ENV HTTP_PROXY=""

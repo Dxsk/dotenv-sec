@@ -4,8 +4,9 @@
 # Usage: source <(dotsec completions zsh)
 
 _dotsec_completions() {
-    local commands="new load unload list spawn proxy browser exegol tmux log info help"
+    local commands="new load unload list spawn board proxy browser exegol tmux log info help"
     local proxy_sub="up down status logs"
+    local board_sub="up start down stop reload status"
     local exegol_sub="exec shell"
     local tmux_sub="attach create kill ls"
 
@@ -14,6 +15,7 @@ _dotsec_completions() {
     elif [[ $words[CURRENT-2] == "dotsec" ]]; then
         case $words[CURRENT-1] in
             proxy)    compadd -- $proxy_sub;;
+            board)    compadd -- $board_sub;;
             exegol)   compadd -- $exegol_sub;;
             tmux)     compadd -- $tmux_sub;;
             load|browser)

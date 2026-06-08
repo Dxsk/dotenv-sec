@@ -1,4 +1,4 @@
-# dotenv-sec — Pentest Environment Bootstrap
+# dotenv-sec: Pentest Environment Bootstrap
 #
 # Source this in ~/.zshrc:
 #   export DOTSEC_HOME="$HOME/Documents/github.com/Dxsk/dotenv-sec"

@@ -1,6 +1,6 @@
 # dotenv-sec
 
-**Pentest environment launcher** — one CLI to spawn your entire offensive security workspace: tmux sessions, MITM proxy, isolated Chromium, and Exegol integration.
+**Pentest environment launcher**: one CLI to spawn your entire offensive security workspace: tmux sessions, MITM proxy, isolated Chromium, and Exegol integration.
 
 ## Architecture
 
@@ -12,8 +12,10 @@ dotsec new acme-corp example.com
          │
          ├─► tmux session "acme-corp" ← 6 windows (recon→monitor)
          │
-         └─► mitmproxy container      ← proxy + web UI
-                 └─► chromium container ← routed through proxy
+         ├─► mitmproxy container      ← proxy:9999 + webUI:9998
+         │       └─► chromium container ← routed through proxy
+         │
+         └─► homer dashboard          ← all services at a glance (port 80)
 ```
 
 ## Quickstart
@@ -26,10 +28,10 @@ make install
 dotsec new acme-corp example.com
 dotsec load acme-corp
 
-# Spawn tmux + start proxy + launch browser
-dotsec spawn
+# Start dashboard + proxy + spawn tmux
+dotsec board up
 dotsec proxy up
-dotsec browser
+dotsec spawn
 ```
 
 ## Commands
@@ -43,6 +45,7 @@ dotsec browser
 | `dotsec spawn [session]` | Instant 6-window pentest tmux session |
 | `dotsec proxy up\|down\|status\|logs` | Manage mitmproxy Docker container |
 | `dotsec browser [target]` | Launch Chromium routed through proxy |
+| `dotsec board up\|down\|reload\|status` | Homer dashboard at http://127.0.0.1:80 |
 | `dotsec exegol exec\|shell` | Execute commands inside Exegol container |
 | `dotsec tmux attach\|create\|kill\|ls` | tmux session management |
 | `dotsec log <cmd...>` | Run command and log to `commands.log` |
@@ -134,4 +137,4 @@ source ~/.zshrc
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT: see [LICENSE](LICENSE).
