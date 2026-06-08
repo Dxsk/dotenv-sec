@@ -48,6 +48,7 @@ jobs:
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-${{ matrix.image.name }}.sarif
           category: trivy-scheduled-${{ matrix.image.name }}
@@ -65,12 +66,15 @@ jobs:
           echo "actual_digest=${ACTUAL_DIGEST}" >> $GITHUB_OUTPUT
 
       - name: Open issue if CVEs found
-        if: failure()
+        if: always()
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const sarif = JSON.parse(fs.readFileSync('trivy-${{ matrix.image.name }}.sarif', 'utf8'));
+            const sarifFile = 'trivy-${{ matrix.image.name }}.sarif';
+            if (!fs.existsSync(sarifFile)) { return; }
+            const sarif = JSON.parse(fs.readFileSync(sarifFile, 'utf8'));
             const results = sarif.runs?.[0]?.results || [];
             const critical = results.filter(r => r.level === 'error').length;
             const high = results.filter(r => r.level === 'warning').length;
