@@ -120,8 +120,8 @@ docker exec -it exegol bash /opt/resources/dotenv-sec/setup.sh
 ```
 
 This installs:
-- **uv** — fast Python package manager (https://docs.astral.sh/uv/)
-- **pnpm** — fast, disk-efficient Node.js package manager (https://pnpm.io/)
+- **uv** - fast Python package manager (https://docs.astral.sh/uv/)
+- **pnpm** - fast, disk-efficient Node.js package manager (https://pnpm.io/)
 
 ## Docker Security
 

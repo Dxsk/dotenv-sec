@@ -1,0 +1,17 @@
+# ─── dotenv-sec .gitignore ─────────────────────────────
+# Generated files
+homer/config.yml
+
+# Symlinks created by dotsec new
+proxy-*/
+
+# Editor artifacts
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

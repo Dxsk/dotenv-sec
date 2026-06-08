@@ -7,11 +7,9 @@
 #
 # ── Shell integration ────────────────────────────────────
 # Auto-load engagement when entering workspace directory
-# (uncomment to enable)
-#
-# chpwd_dotsec() {
-#   if [[ "$PWD" =~ ^/workspace/([^/]+) ]]; then
-#     dotsec load "${match[1]}" >/dev/null 2>&1
-#   fi
-# }
-# autoload -U add-zsh-hook && add-zsh-hook chpwd chpwd_dotsec
+chpwd_dotsec() {
+  if [[ "$PWD" =~ ^/workspace/([^/]+) ]]; then
+    dotsec load "${match[1]}" >/dev/null 2>&1
+  fi
+}
+autoload -U add-zsh-hook && add-zsh-hook chpwd chpwd_dotsec

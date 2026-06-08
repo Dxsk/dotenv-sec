@@ -1,13 +1,13 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 # ─── dotsec completions ─────────────────────────────────
 # Generate shell completions for dotsec
 # Usage: source <(dotsec completions zsh)
 
 _dotsec_completions() {
-    local commands="new load unload list spawn board proxy browser exegol tmux log info help"
+    local commands="new load unload list spawn board dashboard proxy browser exegol tmux log info help"
     local proxy_sub="up down status logs"
     local board_sub="up start down stop reload status"
-    local exegol_sub="exec shell"
+    local exegol_sub="exec shell setup"
     local tmux_sub="attach create kill ls"
 
     if [[ $words[CURRENT-1] == "dotsec" ]]; then
@@ -16,14 +16,22 @@ _dotsec_completions() {
         case $words[CURRENT-1] in
             proxy)    compadd -- $proxy_sub;;
             board)    compadd -- $board_sub;;
+            dashboard) compadd -- $board_sub;;
             exegol)   compadd -- $exegol_sub;;
             tmux)     compadd -- $tmux_sub;;
-            load|browser)
+            spawn|load|browser|new)
                 local targets=()
                 for d in /workspace/*/.env(N); do
                     targets+=($(basename $(dirname $d)))
                 done
                 compadd -- $targets
+                ;;
+        esac
+    elif [[ $words[CURRENT-2] == "tmux" ]]; then
+        case $words[CURRENT-1] in
+            attach|a|kill|k)
+                local sessions=(${(f)"$(tmux ls 2>/dev/null | cut -d: -f1)"})
+                compadd -- $sessions
                 ;;
         esac
     fi

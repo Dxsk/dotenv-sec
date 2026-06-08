@@ -3,7 +3,6 @@
 # Do not edit manually; use dotsec dashboard to regenerate.
 title: "dotenv-sec"
 subtitle: "Pentest Dashboard"
-logo: "assets/logo.png"
 
 header: true
 footer: false

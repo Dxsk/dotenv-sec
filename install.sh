@@ -3,7 +3,7 @@
 # One-shot setup: symlink dotsec to ~/.local/bin, add shell integration
 set -euo pipefail
 
-DOTSEC_HOME="${DOTSEC_HOME:-$HOME/Documents/github.com/Dxsk/dotenv-sec}"
+DOTSEC_HOME="${DOTSEC_HOME:-$(dirname "$(readlink -f "$0")")}"
 BIN_DIR="${HOME}/.local/bin"
 
 mkdir -p "${BIN_DIR}"

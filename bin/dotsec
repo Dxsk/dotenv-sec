@@ -10,6 +10,25 @@ VERSION="0.1.0"
 BOLD="\033[1m"; RED="\033[31m"; GREEN="\033[32m"; YELLOW="\033[33m"
 BLUE="\033[34m"; CYAN="\033[36m"; RESET="\033[0m"
 
+# ── Shared helpers ──────────────────────────────────────
+__docker_network_ensure() {
+    local net="${1:-dotsec-proxy-net}"
+    docker network inspect "$net" &>/dev/null || docker network create "$net"
+}
+
+__homer_reload_if_running() {
+    if docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        __homer_gen_config >/dev/null 2>&1
+        docker restart dotsec-homer >/dev/null 2>&1 || true
+    fi
+}
+
+__env_domain() {
+    local domain
+    domain=$(grep -oP 'DOMAIN="?\K[^"]+' "$1" 2>/dev/null || echo "")
+    echo "${domain}"
+}
+
 # ── Global config (always sourced, overridden per-engagement) ──
 __dotsec_load_global() {
     if [[ -f "${DOTSEC_CONFIG}/config" ]]; then
@@ -17,6 +36,15 @@ __dotsec_load_global() {
     fi
 }
 __dotsec_load_global
+
+if [[ -z "$(command -v docker)" ]]; then
+    echo -e "${RED}[!] docker is required but not installed${RESET}"
+    exit 1
+fi
+if [[ -z "$(command -v tmux)" ]]; then
+    echo -e "${RED}[!] tmux is required but not installed${RESET}"
+    exit 1
+fi
 
 # ── Help ────────────────────────────────────────────────
 usage() {
@@ -36,6 +64,7 @@ ${BOLD}COMMANDS${RESET}
   ${GREEN}proxy${RESET}   up|down|status|logs  Manage mitmproxy container
   ${GREEN}browser${RESET} [target]             Launch Chromium (routed through proxy)
   ${GREEN}board${RESET}   up|down|reload|status Homer dashboard (http://127.0.0.1:9997)
+  ${GREEN}dashboard${RESET}                       Alias for board
   ${GREEN}exegol${RESET}  exec <cmd>           Run command inside Exegol container
   ${GREEN}exegol${RESET}  shell                Open shell in Exegol
   ${GREEN}exegol${RESET}  setup                Install uv + pnpm inside Exegol
@@ -63,9 +92,7 @@ proxy_up() {
     local proxy_port="${PROXY_PORT:-9999}"
     local web_port="${WEB_PORT:-9998}"
 
-    # Create docker network if not exists
-    docker network inspect dotsec-proxy-net &>/dev/null || \
-        docker network create dotsec-proxy-net
+    __docker_network_ensure
 
     echo -e "${CYAN}[*] Starting mitmproxy for ${target}...${RESET}"
     local ws="${WORKSPACE:-/workspace/${target}}"
@@ -83,11 +110,7 @@ proxy_up() {
     echo -e "  Web UI → ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
     echo -e "  CA PEM → ${YELLOW}${ws}/proxy/certs/mitmproxy-ca-cert.pem${RESET}"
 
-    # Auto-reload Homer dashboard
-    docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q . && {
-        __homer_gen_config >/dev/null 2>&1
-        docker restart dotsec-homer >/dev/null 2>&1 || true
-    }
+    __homer_reload_if_running
 }
 
 proxy_down() {
@@ -105,6 +128,30 @@ proxy_status() {
 proxy_logs() {
     local target="${TARGET:-default}"
     docker logs -f "mitmproxy-${target}"
+}
+
+# ── Shared tmux session spawn ────────────────────────────
+__tmux_spawn_session() {
+    local session_name="${1}"
+    local load_cmd="${2:-}"
+
+    tmux has-session -t "$session_name" 2>/dev/null && tmux kill-session -t "$session_name"
+    tmux new-session -d -s "$session_name" -n recon
+    tmux new-window  -t "$session_name" -n scan
+    tmux new-window  -t "$session_name" -n exploit
+    tmux new-window  -t "$session_name" -n post
+    tmux new-window  -t "$session_name" -n report
+    tmux new-window  -t "$session_name" -n monitor
+
+    if [[ -n "$load_cmd" ]]; then
+        for w in recon scan exploit post report monitor; do
+            tmux send-keys -t "${session_name}:${w}" "${load_cmd}" Enter
+        done
+    fi
+
+    tmux set-option -t "$session_name" status-right "#[fg=cyan]${session_name}#[default] | %H:%M"
+    tmux set-option -t "$session_name" status-style "bg=#1a1a2e,fg=#e0e0e0"
+    tmux set-option -t "$session_name" window-status-current-style "bg=#00ff87,fg=#0a0a0a,bold"
 }
 
 # ── Engagement commands ─────────────────────────────────
@@ -162,18 +209,7 @@ DOC
 
     # 4. tmux session
     echo -e "${CYAN}[3/4] Creating tmux session...${RESET}"
-    tmux has-session -t "${target}" 2>/dev/null && tmux kill-session -t "${target}"
-    tmux new-session -d -s "${target}" -n recon
-    tmux new-window  -t "${target}" -n scan
-    tmux new-window  -t "${target}" -n exploit
-    tmux new-window  -t "${target}" -n post
-    tmux new-window  -t "${target}" -n report
-    tmux new-window  -t "${target}" -n monitor
-
-    # Load env in each tmux window
-    for w in recon scan exploit post report monitor; do
-        tmux send-keys -t "${target}:${w}" "source ${ws}/.env && export TARGET=${target} DOMAIN=${domain}" Enter
-    done
+    __tmux_spawn_session "${target}" "source ${ws}/.env && export TARGET=${target} DOMAIN=${domain}"
 
     # 5. Proxy setup
     echo -e "${CYAN}[4/4] Preparing proxy links...${RESET}"
@@ -190,11 +226,7 @@ DOC
     echo -e "  ${BOLD}Dashboard${RESET}   → ${YELLOW}dotsec board reload${RESET}"
     echo ""
 
-    # Auto-reload Homer if running
-    docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q . && {
-        __homer_gen_config >/dev/null 2>&1
-        docker restart dotsec-homer >/dev/null 2>&1 || true
-    }
+    __homer_reload_if_running
 }
 
 cmd_load() {
@@ -210,6 +242,10 @@ cmd_load() {
         exit 1
     fi
     __dotsec_load_global
+    if grep -qP '^\s*[a-zA-Z_][a-zA-Z0-9_]*=[^"]*\$\(|^\s*[a-zA-Z_][a-zA-Z0-9_]*=[^"]*`' "$envfile"; then
+        echo -e "${RED}[!] .env contains command substitution — refusing to source${RESET}"
+        exit 1
+    fi
     source "$envfile"
     echo -e "${GREEN}[+] Loaded engagement: ${TARGET}${RESET}"
     echo -e "  Workspace → ${WORKSPACE}"
@@ -228,10 +264,12 @@ cmd_list() {
     echo -e "${BOLD}Engagements:${RESET}"
     for d in /workspace/*/; do
         [[ -d "$d" ]] || continue
-        local name=$(basename "$d")
+        local name domain
+        name=$(basename "$d")
         local env="${d}.env"
         if [[ -f "$env" ]]; then
-            local domain=$(grep -oP 'DOMAIN="?\K[^"]+' "$env" 2>/dev/null || echo "?")
+            domain=$(__env_domain "$env")
+            [[ -z "$domain" ]] && domain="?"
             echo -e "  ${CYAN}${name}${RESET}  → ${domain}"
         else
             echo -e "  ${CYAN}${name}${RESET}  (no .env)"
@@ -260,7 +298,7 @@ cmd_browser() {
         -e HTTP_PROXY="http://${proxy_host}:8080" \
         -e HTTPS_PROXY="http://${proxy_host}:8080" \
         -v "${ws}/proxy/certs:/certs:ro" \
-        -p 9222:9222 \
+        -p 127.0.0.1:9222:9222 \
         dotenv-sec/chromium:latest
 }
 
@@ -269,12 +307,15 @@ cmd_exegol() {
     local action="${1:-shell}"; shift || true
     local container="${EXEGOL_CONTAINER:-exegol}"
 
+    local docker_tty=""
+    [[ -t 0 ]] && docker_tty="-it"
+
     case "$action" in
         exec)
-            docker exec -it "$container" "$@"
+            docker exec ${docker_tty} "$container" "$@"
             ;;
         shell)
-            docker exec -it "$container" zsh
+            docker exec ${docker_tty} "$container" zsh
             ;;
         setup)
             echo -e "${CYAN}[*] Running Exegol tool setup (uv + pnpm)...${RESET}"
@@ -283,7 +324,7 @@ cmd_exegol() {
                 echo -e "  Start it with: ${YELLOW}exegol start ${container}${RESET}"
                 exit 1
             fi
-            docker exec -it "$container" bash /opt/resources/dotenv-sec/setup.sh
+            docker exec ${docker_tty} "$container" bash /opt/resources/dotenv-sec/setup.sh
             ;;
         *)
             echo -e "${RED}[!] Usage: dotsec exegol exec|shell|setup${RESET}"
@@ -299,34 +340,15 @@ cmd_spawn() {
     local ws="${WORKSPACE:-}"
     local envfile="${ws}/.env"
 
-    # Kill existing session with same name to get a fresh one
-    tmux has-session -t "$session_name" 2>/dev/null && tmux kill-session -t "$session_name"
-
     echo -e "${CYAN}[*] Spawning tmux session: ${session_name}${RESET}"
 
-    # Create session with 6 windows
-    tmux new-session -d -s "$session_name" -n recon
-    tmux new-window  -t "$session_name" -n scan
-    tmux new-window  -t "$session_name" -n exploit
-    tmux new-window  -t "$session_name" -n post
-    tmux new-window  -t "$session_name" -n report
-    tmux new-window  -t "$session_name" -n monitor
+    local spawn_cmd=""
+    [[ -n "$ws" ]] && [[ -f "$envfile" ]] && spawn_cmd="source ${envfile}; clear"
 
-    # Source engagement .env in each window if available
-    if [[ -n "$ws" ]] && [[ -f "$envfile" ]]; then
-        local load_cmd="source ${envfile}"
-        for w in recon scan exploit post report monitor; do
-            tmux send-keys -t "${session_name}:${w}" "$load_cmd; clear" Enter
-        done
-        echo -e "  ${GREEN}Env loaded${RESET} → ${ws}/.env"
-    fi
+    __tmux_spawn_session "$session_name" "$spawn_cmd"
 
-    # Status bar: highlight session name
-    tmux set-option -t "$session_name" status-right "#[fg=cyan]${session_name}#[default] | %H:%M"
-    tmux set-option -t "$session_name" status-style "bg=#1a1a2e,fg=#e0e0e0"
-    tmux set-option -t "$session_name" window-status-current-style "bg=#00ff87,fg=#0a0a0a,bold"
+    [[ -n "$spawn_cmd" ]] && echo -e "  ${GREEN}Env loaded${RESET} → ${ws}/.env"
 
-    # Attach
     tmux attach -t "$session_name"
 }
 
@@ -343,12 +365,7 @@ cmd_tmux() {
             ;;
         create)
             [[ -z "$target" ]] && { echo -e "${RED}[!] Usage: dotsec tmux create <target>${RESET}"; exit 1; }
-            tmux new-session -d -s "$target" -n recon
-            tmux new-window -t "$target" -n scan
-            tmux new-window -t "$target" -n exploit
-            tmux new-window -t "$target" -n post
-            tmux new-window -t "$target" -n report
-            tmux new-window -t "$target" -n monitor
+            __tmux_spawn_session "$target"
             echo -e "${GREEN}[+] Session ${target} created${RESET}"
             ;;
         kill|k)
@@ -371,7 +388,7 @@ cmd_log() {
     [[ -z "$target" ]] && { echo -e "${RED}[!] No engagement loaded${RESET}"; exit 1; }
     local logfile="/workspace/${target}/logs/commands.log"
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$logfile"
-    eval "$@"
+    "$@"
 }
 
 # ── Dashboard (Homer) ────────────────────────────────────
@@ -387,7 +404,6 @@ __homer_gen_config() {
 ---
 title: "dotenv-sec"
 subtitle: "Pentest Dashboard"
-logo: "assets/logo.png"
 header: true
 footer: false
 columns: "auto"
@@ -431,11 +447,12 @@ YAML
     local found=0
     for d in /workspace/*/; do
         [[ -d "$d" ]] || continue
-        local target=$(basename "$d")
+        local target domain
+        target=$(basename "$d")
         local envfile="${d}.env"
-        local domain=""
+        domain=""
 
-        [[ -f "$envfile" ]] && domain=$(grep -oP 'DOMAIN="?\K[^"]+' "$envfile" 2>/dev/null || echo "")
+        [[ -f "$envfile" ]] && domain=$(__env_domain "$envfile")
         [[ -z "$domain" ]] && domain="${target}"
 
         # Check if proxy is running
@@ -494,8 +511,7 @@ cmd_dashboard() {
             __homer_gen_config
 
             echo -e "${CYAN}[*] Starting Homer dashboard...${RESET}"
-            docker network inspect dotsec-proxy-net &>/dev/null || \
-                docker network create dotsec-proxy-net
+            __docker_network_ensure
 
             docker compose -f "${DOTSEC_HOME}/homer/docker-compose.yml" \
                 --project-name "dotsec-homer" up -d
@@ -557,7 +573,7 @@ case "${1:-help}" in
         ;;
 
     browser)      shift; cmd_browser "$@";;
-    board)
+    board|dashboard)
         case "${2:-status}" in
             up|start|down|stop|reload|status)
                 shift; cmd_dashboard "$@";;
