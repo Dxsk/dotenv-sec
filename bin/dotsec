@@ -38,6 +38,7 @@ ${BOLD}COMMANDS${RESET}
   ${GREEN}board${RESET}   up|down|reload|status Homer dashboard (http://127.0.0.1:9997)
   ${GREEN}exegol${RESET}  exec <cmd>           Run command inside Exegol container
   ${GREEN}exegol${RESET}  shell                Open shell in Exegol
+  ${GREEN}exegol${RESET}  setup                Install uv + pnpm inside Exegol
 
   ${GREEN}tmux${RESET}    attach|create|kill|ls tmux session management
   ${GREEN}log${RESET}     <cmd...>             Run command + log to commands.log
@@ -275,8 +276,17 @@ cmd_exegol() {
         shell)
             docker exec -it "$container" zsh
             ;;
+        setup)
+            echo -e "${CYAN}[*] Running Exegol tool setup (uv + pnpm)...${RESET}"
+            if ! docker ps --filter "name=^${container}$" --format '{{.Names}}' | grep -q .; then
+                echo -e "${YELLOW}[!] Container '${container}' is not running.${RESET}"
+                echo -e "  Start it with: ${YELLOW}exegol start ${container}${RESET}"
+                exit 1
+            fi
+            docker exec -it "$container" bash /opt/resources/dotenv-sec/setup.sh
+            ;;
         *)
-            echo -e "${RED}[!] Usage: dotsec exegol exec|shell${RESET}"
+            echo -e "${RED}[!] Usage: dotsec exegol exec|shell|setup${RESET}"
             exit 1
             ;;
     esac

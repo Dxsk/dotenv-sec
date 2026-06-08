@@ -47,6 +47,7 @@ dotsec spawn
 | `dotsec browser [target]` | Launch Chromium routed through proxy |
 | `dotsec board up\|down\|reload\|status` | Homer dashboard at http://127.0.0.1:9997 |
 | `dotsec exegol exec\|shell` | Execute commands inside Exegol container |
+| `dotsec exegol setup` | Install uv + pnpm inside Exegol container |
 | `dotsec tmux attach\|create\|kill\|ls` | tmux session management |
 | `dotsec log <cmd...>` | Run command and log to `commands.log` |
 | `dotsec info` | Show current engagement + global config status |
@@ -103,7 +104,24 @@ Or configure any browser to use `http://127.0.0.1:9999` as HTTP/HTTPS proxy.
 dotsec exegol shell                  # open shell in Exegol
 dotsec exegol exec nmap -sV target   # run command inside Exegol
 dotsec exegol exec "sqlmap -u ..."   # quoted multi-word commands
+dotsec exegol setup                  # install uv + pnpm inside Exegol
 ```
+
+### Exegol tool provisioning
+
+The project ships a `my-resources` bundle deployed to `~/.exegol/my-resources/dotenv-sec/`
+(via `make install` or `make exegol-setup`).
+
+```bash
+# Inside the Exegol container, run:
+dotsec exegol setup
+# or manually:
+docker exec -it exegol bash /opt/resources/dotenv-sec/setup.sh
+```
+
+This installs:
+- **uv** — fast Python package manager (https://docs.astral.sh/uv/)
+- **pnpm** — fast, disk-efficient Node.js package manager (https://pnpm.io/)
 
 ## Docker Security
 

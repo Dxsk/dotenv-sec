@@ -36,7 +36,7 @@ jobs:
           no-cache: true   # Force fresh build to pull latest base
 
       - name: Run Trivy — all severities
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: dotenv-sec/${{ matrix.image.name }}:ci
           format: sarif

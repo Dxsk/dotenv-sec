@@ -6,8 +6,8 @@ CONFIG_DIR   := $(HOME)/.config/dotenvsec
 .PHONY: install setup update build clean uninstall help
 
 ##@ Main targets
-install: setup  ## Full install (symlinks + config + shell + images)
-setup: symlinks config shell build  ## Alias for install
+install: setup  ## Full install (symlinks + config + shell + exegol + images)
+setup: symlinks config shell exegol-setup build  ## Alias for install
 update: git-pull build  ## Pull latest + rebuild images
 uninstall: clean-symlinks clean-config  ## Remove everything
 
@@ -61,6 +61,19 @@ board-up:  ## Start Homer dashboard
 
 board-down:  ## Stop Homer dashboard
 	@docker compose -f $(DOTSEC_HOME)/homer/docker-compose.yml --project-name dotsec-homer down
+
+exegol-setup:  ## Deploy my-resources to ~/.exegol/my-resources/
+	@echo "[*] Deploying Exegol my-resources..."
+	@mkdir -p $(HOME)/.exegol/my-resources/dotenv-sec
+	@cp $(DOTSEC_HOME)/exegol/my-resources/setup.sh $(HOME)/.exegol/my-resources/dotenv-sec/setup.sh
+	@chmod +x $(HOME)/.exegol/my-resources/dotenv-sec/setup.sh
+	@echo "  → $(HOME)/.exegol/my-resources/dotenv-sec/setup.sh"
+	@echo "[+] Exegol my-resources deployed"
+
+exegol-install-tools:  ## Run setup.sh inside EXEGOL_CONTAINER (uv + pnpm)
+	@echo "[*] Installing tools in Exegol container..."
+	@docker exec -it $(EXEGOL_CONTAINER) bash /opt/resources/dotenv-sec/setup.sh
+	@echo "[+] Tools installed"
 
 scan:  ## Scan images with Trivy (requires: trivy)
 	@echo "[*] Scanning mitmproxy..."
