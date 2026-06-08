@@ -1,0 +1,86 @@
+name: scheduled-scan
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'  # Every Monday 05:00 UTC
+  workflow_dispatch:       # Manual trigger
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+jobs:
+  weekly-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: mitmproxy
+            context: ./mitmproxy
+          - name: chromium
+            context: ./chromium
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.image.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          load: true
+          tags: dotenv-sec/${{ matrix.image.name }}:ci
+          no-cache: true   # Force fresh build to pull latest base
+
+      - name: Run Trivy — all severities
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: dotenv-sec/${{ matrix.image.name }}:ci
+          format: sarif
+          output: trivy-${{ matrix.image.name }}.sarif
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          exit-code: 0   # Don't fail, just report
+          timeout: 15m
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.image.name }}.sarif
+          category: trivy-scheduled-${{ matrix.image.name }}
+
+      - name: Check base image freshness
+        id: freshness
+        run: |
+          echo "::group::Base image info for ${{ matrix.image.name }}"
+          docker inspect dotenv-sec/${{ matrix.image.name }}:ci \
+            --format 'Base: {{index .Config.Image}} | Created: {{.Created}}'
+          echo "::endgroup::"
+
+          # Compare base image digest with pinned digest
+          ACTUAL_DIGEST=$(docker inspect dotenv-sec/${{ matrix.image.name }}:ci --format '{{index .RepoDigests 0}}' | cut -d@ -f2)
+          echo "actual_digest=${ACTUAL_DIGEST}" >> $GITHUB_OUTPUT
+
+      - name: Open issue if CVEs found
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const sarif = JSON.parse(fs.readFileSync('trivy-${{ matrix.image.name }}.sarif', 'utf8'));
+            const results = sarif.runs?.[0]?.results || [];
+            const critical = results.filter(r => r.level === 'error').length;
+            const high = results.filter(r => r.level === 'warning').length;
+
+            if (critical + high > 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[SEC] ${{ matrix.image.name }}: ${critical} CRITICAL + ${high} HIGH CVEs — ${new Date().toISOString().split('T')[0]}`,
+                body: `Trivy weekly scan found vulnerabilities in **${{ matrix.image.name }}**.\n\n- Critical: ${critical}\n- High: ${high}\n\nCheck [Security tab](${context.payload.repository?.html_url}/security) for details.`,
+                labels: ['security', 'cve']
+              });
+            }

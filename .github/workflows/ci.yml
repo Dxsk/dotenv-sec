@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: mitmproxy
+            context: ./mitmproxy
+          - name: chromium
+            context: ./chromium
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.image.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          load: true
+          tags: dotenv-sec/${{ matrix.image.name }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: dotenv-sec/${{ matrix.image.name }}:ci
+          format: sarif
+          output: trivy-${{ matrix.image.name }}.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: 1
+          timeout: 10m
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.image.name }}.sarif
+          category: trivy-${{ matrix.image.name }}
+
+      - name: Check base image freshness
+        run: |
+          echo "::group::Base image info for ${{ matrix.image.name }}"
+          docker inspect dotenv-sec/${{ matrix.image.name }}:ci \
+            --format 'Base: {{index .Config.Image}} | Created: {{.Created}}'
+          echo "::endgroup::"

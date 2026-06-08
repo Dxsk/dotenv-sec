@@ -1,0 +1,29 @@
+# ─── Trivy configuration ─────────────────────────────────
+# Used by: trivy image --config .trivy.yaml <image>
+#          make scan
+
+quiet: false
+timeout: 15m
+
+scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+  skip-dirs:
+    - /usr/share/doc
+    - /var/cache
+
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+vulnerability:
+  type:
+    - os
+    - library
+  ignore-unfixed: false
+
+secret:
+  config: {}

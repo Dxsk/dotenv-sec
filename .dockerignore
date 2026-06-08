@@ -1,0 +1,23 @@
+# ─── dotenv-sec .dockerignore ────────────────────────────
+# Exclude from Docker build context for security + perf
+
+# Git
+.git
+.gitignore
+.github/
+
+# Docs / config
+*.md
+Makefile
+config/
+templates/
+bin/
+install.sh
+
+# CI
+.trivy.yaml
+
+# Temp
+*.swp
+*.swo
+*~

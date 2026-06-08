@@ -54,6 +54,22 @@ build:  ## Build all Docker images
 	@docker build -t dotenv-sec/chromium:latest $(DOTSEC_HOME)/chromium
 	@echo "[+] chromium done"
 
+scan:  ## Scan images with Trivy (requires: trivy)
+	@echo "[*] Scanning mitmproxy..."
+	@trivy image --config $(DOTSEC_HOME)/.trivy.yaml dotenv-sec/mitmproxy:latest || true
+	@echo ""
+	@echo "[*] Scanning chromium..."
+	@trivy image --config $(DOTSEC_HOME)/.trivy.yaml dotenv-sec/chromium:latest || true
+	@echo "[+] Scans complete"
+
+inspect-digest:  ## Show pinned digests for all images
+	@echo "mitmproxy:"
+	@docker inspect dotenv-sec/mitmproxy:latest --format '  Image: {{index .Config.Image}}'
+	@docker inspect dotenv-sec/mitmproxy:latest --format '  Digest: {{index .RepoDigests 0}}'
+	@echo "chromium:"
+	@docker inspect dotenv-sec/chromium:latest --format '  Image: {{index .Config.Image}}'
+	@docker inspect dotenv-sec/chromium:latest --format '  Digest: {{index .RepoDigests 0}}'
+
 ##@ Maintenance
 git-pull:  ## Pull latest changes from git
 	@echo "[*] Pulling latest..."

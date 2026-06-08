@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ─── dotsec build ────────────────────────────────────────
-# Build all docker images
+# Build + scan all docker images
 set -euo pipefail
 
 DOTSEC_HOME="${DOTSEC_HOME:-$HOME/Documents/github.com/Dxsk/dotenv-sec}"
+SCAN="${1:-}"
 
 echo "[*] Building mitmproxy..."
 docker build -t dotenv-sec/mitmproxy:latest "${DOTSEC_HOME}/mitmproxy"
@@ -12,3 +13,23 @@ echo "[*] Building chromium..."
 docker build -t dotenv-sec/chromium:latest "${DOTSEC_HOME}/chromium"
 
 echo -e "\033[1;32m[+] All images built\033[0m"
+
+if [[ "$SCAN" == "--scan" ]]; then
+    echo ""
+    echo "[*] Running Trivy scans..."
+
+    if command -v trivy &>/dev/null; then
+        echo "--- mitmproxy ---"
+        trivy image --config "${DOTSEC_HOME}/.trivy.yaml" dotenv-sec/mitmproxy:latest || true
+        echo ""
+        echo "--- chromium ---"
+        trivy image --config "${DOTSEC_HOME}/.trivy.yaml" dotenv-sec/chromium:latest || true
+    else
+        echo "[!] Trivy not installed. Install: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh"
+        exit 1
+    fi
+
+    echo ""
+    echo -e "\033[1;32m[+] Scans complete\033[0m"
+    echo "To auto-fix base image digests: make inspect-digest"
+fi

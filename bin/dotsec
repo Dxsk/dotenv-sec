@@ -66,7 +66,13 @@ proxy_up() {
         docker network create dotsec-proxy-net
 
     echo -e "${CYAN}[*] Starting mitmproxy for ${target}...${RESET}"
-    TARGET="${target}" PROXY_PORT="${proxy_port}" WEB_PORT="${web_port}" \
+    local ws="${WORKSPACE:-/workspace/${target}}"
+    mkdir -p "${ws}/proxy/certs" "${ws}/proxy/flows"
+    TARGET="${target}" \
+        PROXY_PORT="${proxy_port}" \
+        WEB_PORT="${web_port}" \
+        PROXY_CERTS="${ws}/proxy/certs" \
+        PROXY_FLOWS="${ws}/proxy/flows" \
         docker compose -f "${DOTSEC_HOME}/mitmproxy/docker-compose.yml" \
         --project-name "dotsec-${target}" up -d --build
 

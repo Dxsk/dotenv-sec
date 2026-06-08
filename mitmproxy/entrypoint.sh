@@ -12,10 +12,11 @@ if [ ! -f /data/certs/mitmproxy-ca.pem ]; then
     echo "[+] CA cert ready at /data/certs/mitmproxy-ca.pem"
 fi
 
-echo "[*] Starting mitmweb on 0.0.0.0:8081 (proxy: 0.0.0.0:8080)"
+echo "[*] Starting mitmweb — proxy:0.0.0.0:8080 | web:0.0.0.0:8081"
 exec mitmweb \
     --set confdir=/data/certs \
     --mode regular@8080 \
     --web-host 0.0.0.0 \
     --web-port 8081 \
-    --set save_stream_file=/data/flows/flows
+    --set save_stream_file=/data/flows/all.flow \
+    --set stream_large_bodies=10m
