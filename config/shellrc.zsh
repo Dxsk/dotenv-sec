@@ -8,7 +8,7 @@
 # ── Shell integration ────────────────────────────────────
 # Auto-load engagement when entering workspace directory
 chpwd_dotsec() {
-  if [[ "$PWD" =~ ^/workspace/([^/]+) ]]; then
+  if [[ "$PWD" =~ ^${WORKSPACE_ROOT:-/workspace}/([^/]+) ]]; then
     dotsec load "${match[1]}" >/dev/null 2>&1
   fi
 }

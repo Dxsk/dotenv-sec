@@ -21,7 +21,7 @@ _dotsec_completions() {
             tmux)     compadd -- $tmux_sub;;
             spawn|load|browser|new)
                 local targets=()
-                for d in /workspace/*/.env(N); do
+                for d in ${WORKSPACE_ROOT:-/workspace}/*/.env(N); do
                     targets+=($(basename $(dirname $d)))
                 done
                 compadd -- $targets
