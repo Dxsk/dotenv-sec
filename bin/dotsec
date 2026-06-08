@@ -37,14 +37,19 @@ __dotsec_load_global() {
 }
 __dotsec_load_global
 
-if [[ -z "$(command -v docker)" ]]; then
-    echo -e "${RED}[!] docker is required but not installed${RESET}"
-    exit 1
-fi
-if [[ -z "$(command -v tmux)" ]]; then
-    echo -e "${RED}[!] tmux is required but not installed${RESET}"
-    exit 1
-fi
+__require_docker() {
+    if [[ -z "$(command -v docker)" ]]; then
+        echo -e "${RED}[!] docker is required but not installed${RESET}" >&2
+        exit 1
+    fi
+}
+
+__require_tmux() {
+    if [[ -z "$(command -v tmux)" ]]; then
+        echo -e "${RED}[!] tmux is required but not installed${RESET}" >&2
+        exit 1
+    fi
+}
 
 # ── Help ────────────────────────────────────────────────
 usage() {
@@ -92,6 +97,7 @@ proxy_up() {
     local proxy_port="${PROXY_PORT:-9999}"
     local web_port="${WEB_PORT:-9998}"
 
+    __require_docker
     __docker_network_ensure
 
     echo -e "${CYAN}[*] Starting mitmproxy for ${target}...${RESET}"
@@ -159,8 +165,11 @@ cmd_new() {
     local target="${1:-}"
     local domain="${2:-${target}}"
 
+    __require_docker
+    __require_tmux
+
     if [[ -z "$target" ]]; then
-        echo -e "${RED}[!] Usage: dotsec new <target> [domain]${RESET}"
+        echo -e "${RED}[!] Usage: dotsec new <target> [domain]${RESET}" >&2
         exit 1
     fi
 
@@ -232,18 +241,18 @@ DOC
 cmd_load() {
     local target="${1:-${TARGET:-}}"
     if [[ -z "$target" ]]; then
-        echo -e "${RED}[!] Usage: dotsec load <target>${RESET}"
+        echo -e "${RED}[!] Usage: dotsec load <target>${RESET}" >&2
         exit 1
     fi
     local envfile="/workspace/${target}/.env"
     if [[ ! -f "$envfile" ]]; then
-        echo -e "${RED}[!] No .env found for ${target} at ${envfile}${RESET}"
-        echo -e "  Run ${YELLOW}dotsec new ${target}${RESET} first"
+        echo -e "${RED}[!] No .env found for ${target} at ${envfile}${RESET}" >&2
+        echo -e "  Run ${YELLOW}dotsec new ${target}${RESET} first" >&2
         exit 1
     fi
     __dotsec_load_global
     if grep -qP '^\s*[a-zA-Z_][a-zA-Z0-9_]*=[^"]*\$\(|^\s*[a-zA-Z_][a-zA-Z0-9_]*=[^"]*`' "$envfile"; then
-        echo -e "${RED}[!] .env contains command substitution — refusing to source${RESET}"
+        echo -e "${RED}[!] .env contains command substitution — refusing to source${RESET}" >&2
         exit 1
     fi
     source "$envfile"
@@ -280,15 +289,16 @@ cmd_list() {
 # ── Browser ──────────────────────────────────────────────
 cmd_browser() {
     local target="${1:-${TARGET:-}}"
+    __require_docker
     if [[ -z "$target" ]]; then
-        echo -e "${RED}[!] Usage: dotsec browser <target>  (or dotsec load first)${RESET}"
+        echo -e "${RED}[!] Usage: dotsec browser <target>  (or dotsec load first)${RESET}" >&2
         exit 1
     fi
     local ws="/workspace/${target}"
 
     # Ensure proxy is up
     if ! docker ps --filter "name=mitmproxy-${target}" --format '{{.Names}}' | grep -q .; then
-        echo -e "${YELLOW}[!] Proxy not running. Starting...${RESET}"
+        echo -e "${YELLOW}[!] Proxy not running. Starting...${RESET}" >&2
         TARGET="${target}" proxy_up
     fi
 
@@ -307,6 +317,8 @@ cmd_exegol() {
     local action="${1:-shell}"; shift || true
     local container="${EXEGOL_CONTAINER:-exegol}"
 
+    __require_docker
+
     local docker_tty=""
     [[ -t 0 ]] && docker_tty="-it"
 
@@ -320,14 +332,14 @@ cmd_exegol() {
         setup)
             echo -e "${CYAN}[*] Running Exegol tool setup (uv + pnpm)...${RESET}"
             if ! docker ps --filter "name=^${container}$" --format '{{.Names}}' | grep -q .; then
-                echo -e "${YELLOW}[!] Container '${container}' is not running.${RESET}"
-                echo -e "  Start it with: ${YELLOW}exegol start ${container}${RESET}"
+                echo -e "${YELLOW}[!] Container '${container}' is not running.${RESET}" >&2
+                echo -e "  Start it with: ${YELLOW}exegol start ${container}${RESET}" >&2
                 exit 1
             fi
             docker exec ${docker_tty} "$container" bash /opt/resources/dotenv-sec/setup.sh
             ;;
         *)
-            echo -e "${RED}[!] Usage: dotsec exegol exec|shell|setup${RESET}"
+            echo -e "${RED}[!] Usage: dotsec exegol exec|shell|setup${RESET}" >&2
             exit 1
             ;;
     esac
@@ -339,6 +351,8 @@ cmd_spawn() {
     local session_name="${1:-${TARGET:-pentest}}"
     local ws="${WORKSPACE:-}"
     local envfile="${ws}/.env"
+
+    __require_tmux
 
     echo -e "${CYAN}[*] Spawning tmux session: ${session_name}${RESET}"
 
@@ -358,18 +372,20 @@ cmd_tmux() {
     local target="${TARGET:-}"
     [[ -z "$target" ]] && target="${1:-}"
 
+    __require_tmux
+
     case "$action" in
         attach|a)
-            [[ -z "$target" ]] && { echo -e "${RED}[!] No target. dotsec load <target> first${RESET}"; exit 1; }
+            [[ -z "$target" ]] && { echo -e "${RED}[!] No target. dotsec load <target> first${RESET}" >&2; exit 1; }
             tmux attach -t "$target"
             ;;
         create)
-            [[ -z "$target" ]] && { echo -e "${RED}[!] Usage: dotsec tmux create <target>${RESET}"; exit 1; }
+            [[ -z "$target" ]] && { echo -e "${RED}[!] Usage: dotsec tmux create <target>${RESET}" >&2; exit 1; }
             __tmux_spawn_session "$target"
             echo -e "${GREEN}[+] Session ${target} created${RESET}"
             ;;
         kill|k)
-            [[ -z "$target" ]] && { echo -e "${RED}[!] Usage: dotsec tmux kill <target>${RESET}"; exit 1; }
+            [[ -z "$target" ]] && { echo -e "${RED}[!] Usage: dotsec tmux kill <target>${RESET}" >&2; exit 1; }
             tmux kill-session -t "$target"
             echo -e "${GREEN}[+] Session ${target} killed${RESET}"
             ;;
@@ -377,7 +393,7 @@ cmd_tmux() {
             tmux ls 2>/dev/null || echo "No sessions"
             ;;
         *)
-            echo -e "${RED}[!] Usage: dotsec tmux attach|create|kill|ls${RESET}"
+            echo -e "${RED}[!] Usage: dotsec tmux attach|create|kill|ls${RESET}" >&2
             ;;
     esac
 }
@@ -385,7 +401,7 @@ cmd_tmux() {
 # ── Log ───────────────────────────────────────────────────
 cmd_log() {
     local target="${TARGET:-}"
-    [[ -z "$target" ]] && { echo -e "${RED}[!] No engagement loaded${RESET}"; exit 1; }
+    [[ -z "$target" ]] && { echo -e "${RED}[!] No engagement loaded${RESET}" >&2; exit 1; }
     local logfile="/workspace/${target}/logs/commands.log"
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$logfile"
     "$@"
@@ -505,6 +521,8 @@ YAML
 cmd_dashboard() {
     local action="${1:-status}"
 
+    __require_docker
+
     case "$action" in
         up|start)
             echo -e "${CYAN}[*] Generating Homer config...${RESET}"
@@ -528,14 +546,14 @@ cmd_dashboard() {
             echo -e "${CYAN}[*] Regenerating config + restarting...${RESET}"
             __homer_gen_config
             docker restart dotsec-homer 2>/dev/null || \
-                { echo -e "${YELLOW}[!] Homer not running, starting...${RESET}"; cmd_dashboard up; }
+                { echo -e "${YELLOW}[!] Homer not running, starting...${RESET}" >&2; cmd_dashboard up; }
             echo -e "${GREEN}[+] Dashboard reloaded${RESET}"
             ;;
         status)
             docker ps --filter "name=dotsec-homer" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             ;;
         *)
-            echo -e "${RED}[!] Usage: dotsec dashboard up|down|reload|status${RESET}"
+            echo -e "${RED}[!] Usage: dotsec dashboard up|down|reload|status${RESET}" >&2
             ;;
     esac
 }
@@ -568,7 +586,7 @@ case "${1:-help}" in
             down)    proxy_down;;
             status)  proxy_status;;
             logs)    proxy_logs;;
-            *)       echo -e "${RED}[!] dotsec proxy up|down|status|logs${RESET}";;
+            *)       echo -e "${RED}[!] dotsec proxy up|down|status|logs${RESET}" >&2;;
         esac
         ;;
 
@@ -577,7 +595,7 @@ case "${1:-help}" in
         case "${2:-status}" in
             up|start|down|stop|reload|status)
                 shift; cmd_dashboard "$@";;
-            *)  echo -e "${RED}[!] dotsec board up|down|reload|status${RESET}";;
+            *)  echo -e "${RED}[!] dotsec board up|down|reload|status${RESET}" >&2;;
         esac
         ;;
     exegol)       shift; cmd_exegol "$@";;
@@ -585,5 +603,5 @@ case "${1:-help}" in
     log)          shift; cmd_log "$@";;
     info)         cmd_info;;
     help|--help|-h) usage;;
-    *)            echo -e "${RED}[!] Unknown command: $1${RESET}"; usage;;
+    *)            echo -e "${RED}[!] Unknown command: $1${RESET}" >&2; usage;;
 esac
