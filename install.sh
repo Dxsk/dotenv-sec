@@ -47,6 +47,6 @@ docker build -t dotenv-sec/mitmproxy:latest "${DOTSEC_HOME}/mitmproxy" && echo "
 docker build -t dotenv-sec/chromium:latest "${DOTSEC_HOME}/chromium" && echo "[+] chromium image built"
 
 echo ""
-echo -e "\033[1;32m[✓] dotsec installed!\033[0m"
+printf '%b\n' "\033[1;32m[✓] dotsec installed!\033[0m"
 echo "  Restart your shell or run: source ~/.zshrc"
 echo "  Try: dotsec help"

@@ -12,7 +12,7 @@ docker build -t dotenv-sec/mitmproxy:latest "${DOTSEC_HOME}/mitmproxy"
 echo "[*] Building chromium..."
 docker build -t dotenv-sec/chromium:latest "${DOTSEC_HOME}/chromium"
 
-echo -e "\033[1;32m[+] All images built\033[0m"
+printf '%b\n' "\033[1;32m[+] All images built\033[0m"
 
 if [[ "$SCAN" == "--scan" ]]; then
     echo ""
@@ -30,6 +30,6 @@ if [[ "$SCAN" == "--scan" ]]; then
     fi
 
     echo ""
-    echo -e "\033[1;32m[+] Scans complete\033[0m"
+    printf '%b\n' "\033[1;32m[+] Scans complete\033[0m"
     echo "To auto-fix base image digests: make inspect-digest"
 fi
