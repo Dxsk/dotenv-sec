@@ -15,7 +15,7 @@ dotsec new acme-corp example.com
          ├─► mitmproxy container      ← proxy:9999 + webUI:9998
          │       └─► chromium container ← routed through proxy
          │
-         └─► homer dashboard          ← all services at a glance (port 80)
+         └─► homer dashboard          ← all services at a glance (port 9997)
 ```
 
 ## Quickstart
@@ -45,7 +45,7 @@ dotsec spawn
 | `dotsec spawn [session]` | Instant 6-window pentest tmux session |
 | `dotsec proxy up\|down\|status\|logs` | Manage mitmproxy Docker container |
 | `dotsec browser [target]` | Launch Chromium routed through proxy |
-| `dotsec board up\|down\|reload\|status` | Homer dashboard at http://127.0.0.1:80 |
+| `dotsec board up\|down\|reload\|status` | Homer dashboard at http://127.0.0.1:9997 |
 | `dotsec exegol exec\|shell` | Execute commands inside Exegol container |
 | `dotsec tmux attach\|create\|kill\|ls` | tmux session management |
 | `dotsec log <cmd...>` | Run command and log to `commands.log` |
@@ -58,8 +58,9 @@ dotsec spawn
 ```bash
 export EXEGOL_CONTAINER="exegol"  # default Exegol container
 export UA="H1-yourhandle"         # default User-Agent
-export PROXY_PORT="8080"
-export WEB_PORT="8081"
+export PROXY_PORT="9999"
+export WEB_PORT="9998"
+export HOMER_PORT="9997"
 export PLATFORM="h1"              # h1 | ywh | inti | custom
 ```
 
@@ -69,7 +70,7 @@ export PLATFORM="h1"              # h1 | ywh | inti | custom
 export TARGET="acme-corp"
 export DOMAIN="acme-corp.com"
 export UA="H1-myhandle"
-export HTTP_PROXY="http://127.0.0.1:8080"
+export HTTP_PROXY="http://127.0.0.1:9999"
 export EXEGOL_CONTAINER="exegol"
 ```
 
@@ -77,8 +78,8 @@ export EXEGOL_CONTAINER="exegol"
 
 ```bash
 dotsec proxy up          # start mitmproxy container
-# → Proxy  : http://127.0.0.1:8080
-# → Web UI : http://127.0.0.1:8081
+# → Proxy  : http://127.0.0.1:9999
+# → Web UI : http://127.0.0.1:9998
 # → CA PEM : /workspace/$TARGET/proxy/certs/mitmproxy-ca.pem
 
 dotsec proxy status      # check container
@@ -94,7 +95,7 @@ Install the CA certificate in your browser once, then:
 dotsec browser           # Chromium auto-routed through proxy
 ```
 
-Or configure any browser to use `http://127.0.0.1:8080` as HTTP/HTTPS proxy.
+Or configure any browser to use `http://127.0.0.1:9999` as HTTP/HTTPS proxy.
 
 ## Exegol integration
 

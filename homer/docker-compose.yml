@@ -3,7 +3,7 @@ services:
     image: b4bz/homer:v24.12.1@sha256:2c5a3e1a8b4d6f7e9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f
     container_name: dotsec-homer
     ports:
-      - "${HOMER_PORT:-80}:8080"
+      - "${HOMER_PORT:-9997}:8080"
     volumes:
       - ./config.yml:/www/assets/config.yml:ro
       - ./assets/:/www/assets/icons/:ro

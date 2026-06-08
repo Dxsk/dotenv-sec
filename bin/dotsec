@@ -35,7 +35,7 @@ ${BOLD}COMMANDS${RESET}
   ${GREEN}spawn${RESET}   [session]             Instant pentest tmux session (6 windows)
   ${GREEN}proxy${RESET}   up|down|status|logs  Manage mitmproxy container
   ${GREEN}browser${RESET} [target]             Launch Chromium (routed through proxy)
-  ${GREEN}board${RESET}   up|down|reload|status Homer dashboard (http://127.0.0.1:80)
+  ${GREEN}board${RESET}   up|down|reload|status Homer dashboard (http://127.0.0.1:9997)
   ${GREEN}exegol${RESET}  exec <cmd>           Run command inside Exegol container
   ${GREEN}exegol${RESET}  shell                Open shell in Exegol
 
@@ -491,7 +491,7 @@ cmd_dashboard() {
                 --project-name "dotsec-homer" up -d
 
             echo -e "${GREEN}[+] Dashboard ready${RESET}"
-            echo -e "  → ${YELLOW}http://127.0.0.1:${HOMER_PORT:-80}${RESET}"
+            echo -e "  → ${YELLOW}http://127.0.0.1:${HOMER_PORT:-9997}${RESET}"
             ;;
         down|stop)
             docker compose -f "${DOTSEC_HOME}/homer/docker-compose.yml" \

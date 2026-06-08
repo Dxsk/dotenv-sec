@@ -57,7 +57,7 @@ build:  ## Build all Docker images
 board-up:  ## Start Homer dashboard
 	@docker network inspect dotsec-proxy-net &>/dev/null || docker network create dotsec-proxy-net
 	@docker compose -f $(DOTSEC_HOME)/homer/docker-compose.yml --project-name dotsec-homer up -d
-	@echo "[+] Dashboard: http://127.0.0.1:80"
+	@echo "[+] Dashboard: http://127.0.0.1:9997"
 
 board-down:  ## Stop Homer dashboard
 	@docker compose -f $(DOTSEC_HOME)/homer/docker-compose.yml --project-name dotsec-homer down
