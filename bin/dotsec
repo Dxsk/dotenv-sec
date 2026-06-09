@@ -88,6 +88,8 @@ ${BOLD}${BLUE}WORKSPACE${RESET}
   ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux sessions inside Exegol
   ${GREEN}log${RESET}      ${DIM}<cmd...>${RESET}             Run + log to commands.log
   ${GREEN}archive${RESET}  ${DIM}[target]${RESET}           Archive workspace to tar.gz
+  ${GREEN}stop${RESET}     ${DIM}<target>${RESET}             Stop proxy + tmux for engagement
+  ${GREEN}restart${RESET}  ${DIM}<target>${RESET}             Restart proxy + exegol + tmux
 
 ${BOLD}${MAGENTA}EXEGOL${RESET}
   ${GREEN}exegol${RESET}   ${DIM}exec|shell|setup${RESET}     Run commands inside Exegol
@@ -568,6 +570,79 @@ cmd_archive() {
     echo ""
 }
 
+# ── Stop / Restart ───────────────────────────────────────
+cmd_stop() {
+    local target="${1:-${TARGET:-}}"
+    if [[ -z "$target" ]]; then
+        printf '%b\n' "${RED}[!] Usage: dotsec stop <target>${RESET}" >&2
+        exit 1
+    fi
+    local container="${EXEGOL_CONTAINER:-exegol}"
+
+    printf '%b\n' "${BOLD}${YELLOW}Stopping${RESET} ${CYAN}${target}${RESET}..."
+
+    # Stop proxy
+    if docker ps --filter "name=mitmproxy-${target}" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        printf '%b\n' "  ${DIM}Proxy...${RESET}"
+        TARGET="${target}" proxy_down
+    else
+        printf '%b\n' "  ${DIM}Proxy: already stopped${RESET}"
+    fi
+
+    # Kill tmux session in Exegol
+    if docker exec "$container" tmux has-session -t "$target" 2>/dev/null; then
+        printf '%b\n' "  ${DIM}Tmux session...${RESET}"
+        docker exec "$container" tmux kill-session -t "$target" 2>/dev/null || true
+    else
+        printf '%b\n' "  ${DIM}Tmux: no session${RESET}"
+    fi
+
+    printf '%b\n' "  ${GREEN}Environment stopped${RESET}"
+    echo ""
+}
+
+cmd_restart() {
+    local target="${1:-${TARGET:-}}"
+    if [[ -z "$target" ]]; then
+        printf '%b\n' "${RED}[!] Usage: dotsec restart <target>${RESET}" >&2
+        exit 1
+    fi
+    local ws="${WORKSPACE_ROOT:-/workspace}/${target}"
+    local container="${EXEGOL_CONTAINER:-exegol}"
+
+    if [[ ! -d "$ws" ]] || [[ ! -f "${ws}/.env" ]]; then
+        printf '%b\n' "${RED}[!] Engagement not found: ${target}${RESET}" >&2
+        printf '%b\n' "  Run ${YELLOW}dotsec new ${target}${RESET} first" >&2
+        exit 1
+    fi
+
+    printf '%b\n' "${BOLD}${GREEN}Restarting${RESET} ${CYAN}${target}${RESET}..."
+
+    # Reload engagement vars
+    local domain
+    domain=$(__env_domain "${ws}/.env")
+    [[ -z "$domain" ]] && domain="${target}"
+
+    source "${ws}/.env" 2>/dev/null || true
+
+    # Restart proxy
+    printf '%b\n' "  ${DIM}Proxy...${RESET}"
+    TARGET="${target}" proxy_up
+
+    # Ensure Exegol
+    printf '%b\n' "  ${DIM}Exegol...${RESET}"
+    __exegol_ensure_running "$target"
+
+    # Recreate tmux session
+    printf '%b\n' "  ${DIM}Tmux session...${RESET}"
+    local load_cmd="source /workspace/${target}/.env && export TARGET=${target} DOMAIN=${domain}; clear"
+    __exegol_tmux_spawn "$container" "$target" "$load_cmd"
+
+    printf '%b\n' "  ${GREEN}Environment restarted${RESET}"
+    printf '%b\n' "  ${DIM}Attach →${RESET} ${YELLOW}dotsec tmux attach${RESET}"
+    echo ""
+}
+
 # ── Dashboard (Homer) ────────────────────────────────────
 __homer_gen_config() {
     local config="${DOTSEC_HOME}/homer/config.yml"
@@ -764,6 +839,8 @@ case "${1:-help}" in
     tmux)         shift; cmd_tmux "$@";;
     log)          shift; cmd_log "$@";;
     archive)      shift; cmd_archive "$@";;
+    stop)         shift; cmd_stop "$@";;
+    restart)      shift; cmd_restart "$@";;
     info)         cmd_info;;
     completions)  shift; exec "${DOTSEC_HOME}/bin/dotsec-completions" "$@";;
     help|--help|-h) usage;;
