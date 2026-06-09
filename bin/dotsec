@@ -662,6 +662,14 @@ cmd_stop() {
         printf '%b\n' "  ${DIM}Tmux: no session${RESET}"
     fi
 
+    # Stop dashboard
+    if docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        printf '%b\n' "  ${DIM}Dashboard...${RESET}"
+        cmd_dashboard down
+    else
+        printf '%b\n' "  ${DIM}Dashboard: not running${RESET}"
+    fi
+
     printf '%b\n' "  ${GREEN}Environment stopped${RESET}"
     echo ""
 }
@@ -705,6 +713,14 @@ cmd_restart() {
 
     printf '%b\n' "  ${GREEN}Environment restarted${RESET}"
     printf '%b\n' "  ${DIM}Attach →${RESET} ${YELLOW}dotsec tmux attach${RESET}"
+
+    # Restart dashboard if it was stopped
+    if ! docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        cmd_dashboard up
+    else
+        __homer_gen_config >/dev/null 2>&1
+        docker restart dotsec-homer >/dev/null 2>&1 || true
+    fi
     echo ""
 }
 
