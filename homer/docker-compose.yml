@@ -1,6 +1,6 @@
 services:
   homer:
-    image: b4bz/homer:v24.12.1@sha256:2c5a3e1a8b4d6f7e9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f
+    image: b4bz/homer:v24.12.1@sha256:4b44a4a9e3294ccef756275271342661c389ae2936e71ac96b911a139de57757
     container_name: dotsec-homer
     ports:
       - "${HOMER_PORT:-9997}:8080"
