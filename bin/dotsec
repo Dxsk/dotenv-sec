@@ -357,7 +357,13 @@ DOC
     printf '%b\n' "  ${BOLD}${GREEN}└───────────────────────────────────────────────┘${RESET}"
     echo ""
 
-    __homer_reload_if_running
+    # Start dashboard if not running
+    if docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        __homer_gen_config >/dev/null 2>&1
+        docker restart dotsec-homer >/dev/null 2>&1 || true
+    else
+        cmd_dashboard up
+    fi
 }
 
 cmd_load() {
