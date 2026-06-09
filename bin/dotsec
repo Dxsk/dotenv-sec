@@ -115,33 +115,41 @@ __exegol_ensure_running() {
     local ws_root="${2:-${WORKSPACE_ROOT}}"
     local container="${EXEGOL_CONTAINER:-exegol}"
 
-    # Container already running
+    # Already running? Check mount and return
     if docker ps --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
         local mount_src
         mount_src=$(docker inspect "$container" --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || echo "")
-        if [[ -z "$mount_src" ]] || [[ "$mount_src" != "${ws_root}" ]]; then
-            printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}/workspace not mounted or mismatch, restarting...${RESET}" >&2
+        if [[ -n "$mount_src" ]] && [[ "$mount_src" = "${ws_root}" ]]; then
+            return 0
+        fi
+    fi
+
+    # Container exists (running or stopped)? Start it — fast
+    if docker ps -a --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        # Stop if running with wrong mount
+        if docker ps --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
             docker stop "$container" >/dev/null 2>&1
+        fi
+        # Recreate with correct mount if needed
+        local mount_src
+        mount_src=$(docker inspect "$container" --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || echo "")
+        if [[ -z "$mount_src" ]] || [[ "$mount_src" != "${ws_root}" ]]; then
             docker rm "$container" >/dev/null 2>&1
             if command -v exegol &>/dev/null; then
-                exegol start -w "${ws_root}" "$container" >/dev/null 2>&1
+                exegol start -w "${ws_root}" "$container" &>/dev/null &
             else
-                docker run -d --name "$container" -v "${ws_root}:/workspace" "nwodtuhs/exegol:full" sleep infinity
+                docker run -d --name "$container" -v "${ws_root}:/workspace" --network host "nwodtuhs/exegol:free" sleep infinity
             fi
+        else
+            docker start "$container" >/dev/null 2>&1
         fi
         return 0
     fi
 
-    # Container exists but stopped? Start it
-    if docker ps -a --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
-        docker start "$container" >/dev/null 2>&1
-        return 0
-    fi
-
-    # Create and start
-    printf '%b\n' "  ${DIM}Starting Exegol container (first time, may take a while)...${RESET}"
+    # Container doesn't exist — start in background (may take time)
+    printf '%b\n' "  ${DIM}Exegol first launch (pulling image)...${RESET}"
     if command -v exegol &>/dev/null; then
-        exegol start -w "${ws_root}" "$container" >/dev/null 2>&1
+        exegol start -w "${ws_root}" "$container" &>/dev/null &
     else
         docker run -d --name "$container" \
             -v "${ws_root}:/workspace" \
@@ -204,6 +212,18 @@ proxy_up() {
 
     printf '%b\n' "  ${GREEN}Proxy${RESET}   ${YELLOW}http://127.0.0.1:${proxy_port}${RESET}"
     printf '%b\n' "  ${GREEN}Web UI${RESET}  ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
+
+    # Wait for password file to be written by entrypoint
+    local passfile="${ws}/proxy/certs/.web-pass"
+    local i=0
+    while [[ ! -f "$passfile" ]] && [[ $i -lt 10 ]]; do
+        sleep 1; ((i++))
+    done
+    if [[ -f "$passfile" ]]; then
+        local web_pass
+        web_pass=$(cat "$passfile" 2>/dev/null || echo "")
+        [[ -n "$web_pass" ]] && printf '%b\n' "  ${GREEN}Web auth${RESET} ${DIM}admin :${RESET} ${YELLOW}${web_pass}${RESET}"
+    fi
     printf '%b\n' "  ${GREEN}CA PEM${RESET}  ${DIM}${ws}/proxy/certs/mitmproxy-ca-cert.pem${RESET}"
 
     __homer_reload_if_running

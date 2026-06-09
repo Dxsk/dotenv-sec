@@ -12,6 +12,9 @@ services:
     restart: unless-stopped
     networks:
       - proxy-net
+    environment:
+      - WEB_USER=${WEB_USER:-admin}
+      - WEB_PASS=${WEB_PASS:-}
 
 networks:
   proxy-net:
