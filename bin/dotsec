@@ -71,7 +71,7 @@ ${BOLD}USAGE${RESET}
   ${GREEN}dotsec${RESET} ${DIM}<command> [args]${RESET}
 
 ${BOLD}${CYAN}ENGAGEMENT${RESET}
-  ${GREEN}new${RESET}      ${DIM}<target> [domain]${RESET}    Init workspace + tmux + proxy
+  ${GREEN}new${RESET}      ${DIM}<target> [domain]${RESET}    Init workspace + proxy + exegol + tmux
   ${GREEN}load${RESET}     ${DIM}<target>${RESET}             Source .env.engagement
   ${GREEN}unload${RESET}                         Unset engagement vars
   ${GREEN}list${RESET}                           List all engagements
@@ -84,8 +84,8 @@ ${BOLD}${MAGENTA}DASHBOARD${RESET}
   ${GREEN}board${RESET}    ${DIM}up|down|reload|status${RESET}  Homer dashboard ${DIM}(127.0.0.1:9997)${RESET}
 
 ${BOLD}${BLUE}WORKSPACE${RESET}
-  ${GREEN}spawn${RESET}    ${DIM}[session]${RESET}             Instant 6-window pentest tmux
-  ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux session management
+  ${GREEN}spawn${RESET}    ${DIM}[session]${RESET}             Spawn 6-window tmux in Exegol + attach
+  ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux sessions inside Exegol
   ${GREEN}log${RESET}      ${DIM}<cmd...>${RESET}             Run + log to commands.log
 
 ${BOLD}${MAGENTA}EXEGOL${RESET}
@@ -97,13 +97,83 @@ ${BOLD}${CYAN}INFO${RESET}
 
 ${BOLD}QUICKSTART${RESET}
   ${GREEN}dotsec${RESET} new mytarget example.com
-  ${GREEN}dotsec${RESET} proxy up
+  ${GREEN}dotsec${RESET} spawn       ${DIM}# or: dotsec tmux attach${RESET}
   ${GREEN}dotsec${RESET} browser
 
 ${BOLD}CONFIG${RESET}
   ${DIM}DOTSEC_HOME${RESET} = ${DOTSEC_HOME}
 EOF
     exit 0
+}
+
+# ── Exegol helpers ───────────────────────────────────────
+__exegol_ensure_running() {
+    local target="${1}"
+    local container="${EXEGOL_CONTAINER:-exegol}"
+
+    # Container already running
+    if docker ps --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        local mount_src
+        mount_src=$(docker inspect "$container" --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || echo "")
+        if [[ -z "$mount_src" ]]; then
+            printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}/workspace not mounted in Exegol, restarting...${RESET}" >&2
+            docker stop "$container" >/dev/null 2>&1
+            docker rm "$container" >/dev/null 2>&1
+            if command -v exegol &>/dev/null; then
+                exegol start -w "${WORKSPACE_ROOT}" "$container" >/dev/null 2>&1
+            else
+                docker run -d --name "$container" -v "${WORKSPACE_ROOT}:/workspace" "nwodtuhs/exegol:full" sleep infinity
+            fi
+        fi
+        return 0
+    fi
+
+    # Container exists but stopped? Start it
+    if docker ps -a --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        docker start "$container" >/dev/null 2>&1
+        return 0
+    fi
+
+    # Create and start
+    printf '%b\n' "  ${DIM}Starting Exegol container (first time, may take a while)...${RESET}"
+    if command -v exegol &>/dev/null; then
+        exegol start -w "${WORKSPACE_ROOT}" "$container" >/dev/null 2>&1
+    else
+        docker run -d --name "$container" \
+            -v "${WORKSPACE_ROOT}:/workspace" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            --network host \
+            "nwodtuhs/exegol:free" sleep infinity
+    fi
+}
+
+__exegol_tmux_spawn() {
+    local container="${1}"
+    local session_name="${2}"
+    local load_cmd="${3:-}"
+
+    # Kill existing session
+    docker exec "$container" tmux kill-session -t "$session_name" 2>/dev/null || true
+
+    # Create 6-window detached session
+    docker exec "$container" tmux new-session -d -s "$session_name" -n recon
+    docker exec "$container" tmux new-window  -t "$session_name" -n scan
+    docker exec "$container" tmux new-window  -t "$session_name" -n exploit
+    docker exec "$container" tmux new-window  -t "$session_name" -n post
+    docker exec "$container" tmux new-window  -t "$session_name" -n report
+    docker exec "$container" tmux new-window  -t "$session_name" -n monitor
+
+    # Source .env in all windows
+    if [[ -n "$load_cmd" ]]; then
+        for w in recon scan exploit post report monitor; do
+            docker exec "$container" tmux send-keys -t "${session_name}:${w}" "${load_cmd}" Enter
+        done
+    fi
+
+    # Style
+    docker exec "$container" tmux set-option -t "$session_name" status-right "#[fg=cyan]${session_name}#[default] | %H:%M"
+    docker exec "$container" tmux set-option -t "$session_name" status-style "bg=#1a1a2e,fg=#e0e0e0"
+    docker exec "$container" tmux set-option -t "$session_name" window-status-current-style "bg=#14a3a8,fg=#0d1117,bold"
 }
 
 # ── Proxy commands ──────────────────────────────────────
@@ -181,7 +251,6 @@ cmd_new() {
     local domain="${2:-${target}}"
 
     __require_docker
-    __require_tmux
 
     if [[ -z "$target" ]]; then
         printf '%b\n' "${RED}[!] Usage: dotsec new <target> [domain]${RESET}" >&2
@@ -195,11 +264,11 @@ cmd_new() {
     printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
 
     # 1. Workspace structure
-    printf '%b\n' "  ${DIM}[1/4]${RESET} ${DIM}Creating workspace...${RESET}"
+    printf '%b\n' "  ${DIM}[1/6]${RESET} ${DIM}Creating workspace...${RESET}"
     mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor}}
 
     # 2. Copy and fill .env
-    printf '%b\n' "  ${DIM}[2/4]${RESET} ${DIM}Setting up dotenv...${RESET}"
+    printf '%b\n' "  ${DIM}[2/6]${RESET} ${DIM}Setting up dotenv...${RESET}"
     cp "${DOTSEC_HOME}/templates/.env.engagement" "${ws}/.env"
     sed -i "s|WORKSPACE=\"/workspace/acme-corp\"|WORKSPACE=\"${WORKSPACE_ROOT}/${target}\"|" "${ws}/.env"
     sed -i "s|TARGET=\"acme-corp\"|TARGET=\"${target}\"|" "${ws}/.env"
@@ -213,6 +282,7 @@ cmd_new() {
     [[ -n "${WEB_PORT:-}" ]] && sed -i "s|WEB_PORT=\"9998\"|WEB_PORT=\"${WEB_PORT}\"|g" "${ws}/.env"
 
     # 3. ENGAGEMENT.md
+    printf '%b\n' "  ${DIM}[3/6]${RESET} ${DIM}Writing ENGAGEMENT.md...${RESET}"
     cat > "${ws}/ENGAGEMENT.md" <<DOC
 # Engagement: ${target}
 
@@ -231,22 +301,29 @@ TODO
 \${UA:-not set}
 DOC
 
-    # 4. tmux session
-    printf '%b\n' "  ${DIM}[3/4]${RESET} ${DIM}Creating tmux session...${RESET}"
-    __tmux_spawn_session "${target}" "source ${ws}/.env && export TARGET=${target} DOMAIN=${domain}"
+    # 4. Start proxy
+    printf '%b\n' "  ${DIM}[4/6]${RESET} ${DIM}Starting mitmproxy...${RESET}"
+    TARGET="${target}" proxy_up
 
-    # 5. Proxy setup
-    printf '%b\n' "  ${DIM}[4/4]${RESET} ${DIM}Preparing proxy links...${RESET}"
-    mkdir -p "${ws}/proxy" && ln -sfn "${ws}/proxy" "$(pwd)/proxy-${target}" 2>/dev/null || true
+    # 5. Ensure Exegol is running with workspace mounted
+    printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Ensuring Exegol container...${RESET}"
+    __exegol_ensure_running "$target"
+
+    # 6. Spawn tmux inside Exegol
+    printf '%b\n' "  ${DIM}[6/6]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
+    local container="${EXEGOL_CONTAINER:-exegol}"
+    local load_cmd="source /workspace/${target}/.env && export TARGET=${target} DOMAIN=${domain}; clear"
+    __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     echo ""
     printf '%b\n' "  ${BOLD}${GREEN}┌─ Engagement: ${CYAN}${target}${GREEN} ─────────────────┐${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}                                               ${BOLD}${GREEN}│${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Workspace${RESET}   → ${CYAN}${ws}${RESET}"
-    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Load env${RESET}    → ${YELLOW}dotsec load ${target}${RESET}"
-    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Proxy${RESET}       → ${YELLOW}dotsec proxy up${RESET}"
-    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Attach tmux${RESET}  → ${YELLOW}dotsec tmux attach${RESET}"
-    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Browser${RESET}     → ${YELLOW}dotsec browser${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Proxy${RESET}       → ${YELLOW}http://127.0.0.1:${PROXY_PORT:-9999}${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Web UI${RESET}      → ${YELLOW}http://127.0.0.1:${WEB_PORT:-9998}${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Exegol${RESET}      → ${BLUE}${container}${RESET} ${DIM}(tmux: ${target})${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Attach${RESET}      → ${YELLOW}dotsec tmux attach${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Browser${RESET}     → ${YELLOW}dotsec browser ${target}${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Dashboard${RESET}   → ${YELLOW}dotsec board reload${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}                                               ${BOLD}${GREEN}│${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}└───────────────────────────────────────────────┘${RESET}"
@@ -370,19 +447,27 @@ cmd_spawn() {
     local session_name="${1:-${TARGET:-pentest}}"
     local ws="${WORKSPACE:-}"
     local envfile="${ws}/.env"
+    local container="${EXEGOL_CONTAINER:-exegol}"
 
-    __require_tmux
+    __require_docker
 
-    printf '%b\n' "${DIM}Spawning tmux session:${RESET} ${CYAN}${session_name}${RESET}"
+    # Check if target is an engagement with .env → use Exegol path
+    local exegol_env=""
+    [[ -n "$ws" ]] && [[ -f "$envfile" ]] && exegol_env="/workspace/${TARGET:-${session_name}}/.env"
 
-    local spawn_cmd=""
-    [[ -n "$ws" ]] && [[ -f "$envfile" ]] && spawn_cmd="source ${envfile}; clear"
+    printf '%b\n' "${DIM}Spawning tmux session in Exegol:${RESET} ${CYAN}${session_name}${RESET}"
 
-    __tmux_spawn_session "$session_name" "$spawn_cmd"
+    # Ensure Exegol is running
+    __exegol_ensure_running "${TARGET:-${session_name}}"
 
-    [[ -n "$spawn_cmd" ]] && printf '%b\n' "  ${GREEN}env${RESET} ${DIM}loaded →${RESET} ${DIM}${ws}/.env${RESET}"
+    local load_cmd=""
+    [[ -n "$exegol_env" ]] && load_cmd="source ${exegol_env}; clear"
 
-    tmux attach -t "$session_name"
+    __exegol_tmux_spawn "$container" "$session_name" "$load_cmd"
+
+    [[ -n "$load_cmd" ]] && printf '%b\n' "  ${GREEN}env${RESET} ${DIM}loaded →${RESET} ${DIM}${exegol_env}${RESET}"
+
+    docker exec -it "$container" tmux attach -t "$session_name"
 }
 
 # ── Tmux ─────────────────────────────────────────────────
@@ -390,26 +475,28 @@ cmd_tmux() {
     local action="${1:-}"; shift || true
     local target="${TARGET:-}"
     [[ -z "$target" ]] && target="${1:-}"
+    local container="${EXEGOL_CONTAINER:-exegol}"
 
-    __require_tmux
+    __require_docker
 
     case "$action" in
         attach|a)
             [[ -z "$target" ]] && { printf '%b\n' "${RED}[!] No target. dotsec load <target> first${RESET}" >&2; exit 1; }
-            tmux attach -t "$target"
+            docker exec -it "$container" tmux attach -t "$target"
             ;;
         create)
             [[ -z "$target" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec tmux create <target>${RESET}" >&2; exit 1; }
-            __tmux_spawn_session "$target"
-            printf '%b\n' "${GREEN}Session${RESET} ${CYAN}${target}${RESET} ${DIM}created${RESET}"
+            __exegol_ensure_running "$target"
+            __exegol_tmux_spawn "$container" "$target"
+            printf '%b\n' "${GREEN}Session${RESET} ${CYAN}${target}${RESET} ${DIM}created in Exegol${RESET}"
             ;;
         kill|k)
             [[ -z "$target" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec tmux kill <target>${RESET}" >&2; exit 1; }
-            tmux kill-session -t "$target"
+            docker exec "$container" tmux kill-session -t "$target" 2>/dev/null || true
             printf '%b\n' "${DIM}Session${RESET} ${CYAN}${target}${RESET} ${DIM}killed${RESET}"
             ;;
         ls|list)
-            tmux ls 2>/dev/null || echo "No sessions"
+            docker exec "$container" tmux ls 2>/dev/null || echo "No sessions"
             ;;
         *)
             printf '%b\n' "${RED}[!] Usage: dotsec tmux attach|create|kill|ls${RESET}" >&2
