@@ -223,6 +223,16 @@ proxy_up() {
     local ws="${WORKSPACE:-${ws_root}/${target}}"
     mkdir -p "${ws}/proxy/certs" "${ws}/proxy/flows"
 
+    # Check port availability
+    if ss -tlnp 2>/dev/null | grep -q ":${proxy_port}\b" || \
+       docker ps --format '{{.Ports}}' 2>/dev/null | grep -q ":${proxy_port}->"; then
+        printf '%b\n' "  ${YELLOW}[!]${RESET} ${DIM}Port ${proxy_port} already in use — is another proxy running?${RESET}" >&2
+        printf '%b\n' "  ${DIM}Check:${RESET} ${YELLOW}dotsec proxy status${RESET}" >&2
+        printf '%b\n' "  ${DIM}Stop previous:${RESET} ${YELLOW}dotsec stop <target>${RESET}" >&2
+        printf '%b\n' "  ${DIM}Or use custom port:${RESET} ${YELLOW}PROXY_PORT=8888 dotsec new ${target}${RESET}" >&2
+        return 1
+    fi
+
     # Generate or reuse web password
     local passfile="${ws}/proxy/certs/.web-pass"
     local web_pass=""
