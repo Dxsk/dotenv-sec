@@ -2,11 +2,10 @@
 set -e
 
 WEB_USER="${WEB_USER:-admin}"
-WEB_PASS="${WEB_PASS:-}"
-PASS_FILE="/data/certs/.web-pass"
 
-# Generate password if not provided
+# Use WEB_PASS from env, or generate + persist one
 if [ -z "$WEB_PASS" ]; then
+    PASS_FILE="/data/certs/.web-pass"
     if [ -f "$PASS_FILE" ]; then
         WEB_PASS=$(cat "$PASS_FILE")
     else

@@ -223,10 +223,23 @@ proxy_up() {
     local ws="${WORKSPACE:-${ws_root}/${target}}"
     mkdir -p "${ws}/proxy/certs" "${ws}/proxy/flows"
 
+    # Generate or reuse web password
+    local passfile="${ws}/proxy/certs/.web-pass"
+    local web_pass=""
+    if [[ -f "$passfile" ]]; then
+        web_pass=$(cat "$passfile" 2>/dev/null || echo "")
+    fi
+    if [[ -z "$web_pass" ]]; then
+        web_pass=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+        echo "$web_pass" > "$passfile"
+    fi
+
     local output
     output=$(TARGET="${target}" \
         PROXY_PORT="${proxy_port}" \
         WEB_PORT="${web_port}" \
+        WEB_USER="admin" \
+        WEB_PASS="${web_pass}" \
         PROXY_CERTS="${ws}/proxy/certs" \
         PROXY_FLOWS="${ws}/proxy/flows" \
         docker compose -f "${DOTSEC_HOME}/mitmproxy/docker-compose.yml" \
@@ -243,18 +256,7 @@ proxy_up() {
 
     printf '%b\n' "  ${GREEN}Proxy${RESET}   ${YELLOW}http://127.0.0.1:${proxy_port}${RESET}"
     printf '%b\n' "  ${GREEN}Web UI${RESET}  ${YELLOW}http://127.0.0.1:${web_port}${RESET}"
-
-    # Wait for password file to be written by entrypoint
-    local passfile="${ws}/proxy/certs/.web-pass"
-    local i=0
-    while [[ ! -f "$passfile" ]] && [[ $i -lt 10 ]]; do
-        sleep 1; ((i++))
-    done
-    if [[ -f "$passfile" ]]; then
-        local web_pass
-        web_pass=$(cat "$passfile" 2>/dev/null || echo "")
-        [[ -n "$web_pass" ]] && printf '%b\n' "  ${GREEN}Web auth${RESET} ${DIM}admin :${RESET} ${YELLOW}${web_pass}${RESET}"
-    fi
+    printf '%b\n' "  ${GREEN}Web auth${RESET} ${DIM}admin :${RESET} ${YELLOW}${web_pass}${RESET}"
     printf '%b\n' "  ${GREEN}CA PEM${RESET}  ${DIM}${ws}/proxy/certs/mitmproxy-ca-cert.pem${RESET}"
 
     __homer_reload_if_running
