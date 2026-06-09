@@ -71,7 +71,7 @@ ${BOLD}USAGE${RESET}
   ${GREEN}dotsec${RESET} ${DIM}<command> [args]${RESET}
 
 ${BOLD}${CYAN}ENGAGEMENT${RESET}
-  ${GREEN}new${RESET}      ${DIM}<target> [domain]${RESET}    Init workspace + proxy + exegol + tmux
+  ${GREEN}new${RESET}      ${DIM}[-w <path>] <target> [domain]${RESET}    Init workspace + proxy + exegol + tmux
   ${GREEN}load${RESET}     ${DIM}<target>${RESET}             Source .env.engagement
   ${GREEN}unload${RESET}                         Unset engagement vars
   ${GREEN}list${RESET}                           List all engagements
@@ -112,20 +112,21 @@ EOF
 # ── Exegol helpers ───────────────────────────────────────
 __exegol_ensure_running() {
     local target="${1}"
+    local ws_root="${2:-${WORKSPACE_ROOT}}"
     local container="${EXEGOL_CONTAINER:-exegol}"
 
     # Container already running
     if docker ps --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
         local mount_src
         mount_src=$(docker inspect "$container" --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || echo "")
-        if [[ -z "$mount_src" ]]; then
-            printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}/workspace not mounted in Exegol, restarting...${RESET}" >&2
+        if [[ -z "$mount_src" ]] || [[ "$mount_src" != "${ws_root}" ]]; then
+            printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}/workspace not mounted or mismatch, restarting...${RESET}" >&2
             docker stop "$container" >/dev/null 2>&1
             docker rm "$container" >/dev/null 2>&1
             if command -v exegol &>/dev/null; then
-                exegol start -w "${WORKSPACE_ROOT}" "$container" >/dev/null 2>&1
+                exegol start -w "${ws_root}" "$container" >/dev/null 2>&1
             else
-                docker run -d --name "$container" -v "${WORKSPACE_ROOT}:/workspace" "nwodtuhs/exegol:full" sleep infinity
+                docker run -d --name "$container" -v "${ws_root}:/workspace" "nwodtuhs/exegol:full" sleep infinity
             fi
         fi
         return 0
@@ -140,10 +141,10 @@ __exegol_ensure_running() {
     # Create and start
     printf '%b\n' "  ${DIM}Starting Exegol container (first time, may take a while)...${RESET}"
     if command -v exegol &>/dev/null; then
-        exegol start -w "${WORKSPACE_ROOT}" "$container" >/dev/null 2>&1
+        exegol start -w "${ws_root}" "$container" >/dev/null 2>&1
     else
         docker run -d --name "$container" \
-            -v "${WORKSPACE_ROOT}:/workspace" \
+            -v "${ws_root}:/workspace" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             --network host \
             "nwodtuhs/exegol:free" sleep infinity
@@ -184,13 +185,14 @@ proxy_up() {
     local target="${TARGET:-default}"
     local proxy_port="${PROXY_PORT:-9999}"
     local web_port="${WEB_PORT:-9998}"
+    local ws_root="${DOTSEC_WORKSPACE_ROOT:-${WORKSPACE_ROOT}}"
 
     __require_docker
     __docker_network_ensure
 
     printf '%b\n' "${YELLOW}[*]${RESET} ${DIM}Starting mitmproxy for${RESET} ${CYAN}${target}${RESET}..."
 
-    local ws="${WORKSPACE:-${WORKSPACE_ROOT}/${target}}"
+    local ws="${WORKSPACE:-${ws_root}/${target}}"
     mkdir -p "${ws}/proxy/certs" "${ws}/proxy/flows"
     TARGET="${target}" \
         PROXY_PORT="${proxy_port}" \
@@ -250,17 +252,40 @@ __tmux_spawn_session() {
 
 # ── Engagement commands ─────────────────────────────────
 cmd_new() {
-    local target="${1:-}"
-    local domain="${2:-${target}}"
+    local ws_root="${WORKSPACE_ROOT}"
+    local target=""
+    local domain=""
+
+    # Parse flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -w|--workspace)
+                ws_root="${2}"; shift 2 ;;
+            -w=*|--workspace=*)
+                ws_root="${1#*=}"; shift ;;
+            --)
+                shift; break ;;
+            -*)
+                printf '%b\n' "${RED}[!] Unknown flag: $1${RESET}" >&2; exit 1 ;;
+            *)
+                if [[ -z "$target" ]]; then
+                    target="$1"
+                elif [[ -z "$domain" ]]; then
+                    domain="$1"
+                fi
+                shift ;;
+        esac
+    done
 
     __require_docker
 
     if [[ -z "$target" ]]; then
-        printf '%b\n' "${RED}[!] Usage: dotsec new <target> [domain]${RESET}" >&2
+        printf '%b\n' "${RED}[!] Usage: dotsec new [-w <workspace_root>] <target> [domain]${RESET}" >&2
         exit 1
     fi
 
-    local ws="${WORKSPACE_ROOT}/${target}"
+    [[ -z "$domain" ]] && domain="${target}"
+    local ws="${ws_root}/${target}"
 
     printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
     printf '%b\n' "  ${BOLD}${CYAN}New Engagement${RESET}  ${GREEN}▸${RESET} ${BOLD}${target}${RESET}  ${DIM}${domain}${RESET}"
@@ -273,7 +298,7 @@ cmd_new() {
     # 2. Copy and fill .env
     printf '%b\n' "  ${DIM}[2/6]${RESET} ${DIM}Setting up dotenv...${RESET}"
     cp "${DOTSEC_HOME}/templates/.env.engagement" "${ws}/.env"
-    sed -i "s|WORKSPACE=\"/workspace/acme-corp\"|WORKSPACE=\"${WORKSPACE_ROOT}/${target}\"|" "${ws}/.env"
+    sed -i "s|WORKSPACE=\"/workspace/acme-corp\"|WORKSPACE=\"${ws}\"|" "${ws}/.env"
     sed -i "s|TARGET=\"acme-corp\"|TARGET=\"${target}\"|" "${ws}/.env"
     sed -i "s|DOMAIN=\"acme-corp.com\"|DOMAIN=\"${domain}\"|" "${ws}/.env"
 
@@ -306,11 +331,11 @@ DOC
 
     # 4. Start proxy
     printf '%b\n' "  ${DIM}[4/6]${RESET} ${DIM}Starting mitmproxy...${RESET}"
-    TARGET="${target}" proxy_up
+    DOTSEC_WORKSPACE_ROOT="${ws_root}" TARGET="${target}" proxy_up
 
     # 5. Ensure Exegol is running with workspace mounted
     printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Ensuring Exegol container...${RESET}"
-    __exegol_ensure_running "$target"
+    __exegol_ensure_running "$target" "$ws_root"
 
     # 6. Spawn tmux inside Exegol
     printf '%b\n' "  ${DIM}[6/6]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
