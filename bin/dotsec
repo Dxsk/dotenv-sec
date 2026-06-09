@@ -164,6 +164,17 @@ __exegol_tmux_spawn() {
     local session_name="${2}"
     local load_cmd="${3:-}"
 
+    # Wait for container to be ready
+    local waited=0
+    while ! docker exec "$container" true 2>/dev/null && [[ $waited -lt 30 ]]; do
+        sleep 2; ((waited+=2))
+    done
+    if ! docker exec "$container" true 2>/dev/null; then
+        printf '%b\n' "  ${YELLOW}[!]${RESET} ${DIM}Exegol container not ready — skip tmux${RESET}" >&2
+        printf '%b\n' "  ${DIM}Attach later with:${RESET} ${YELLOW}dotsec tmux attach${RESET}" >&2
+        return 0
+    fi
+
     # Kill existing session
     docker exec "$container" tmux kill-session -t "$session_name" 2>/dev/null || true
 
