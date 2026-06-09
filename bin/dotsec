@@ -164,14 +164,17 @@ __exegol_tmux_spawn() {
     local session_name="${2}"
     local load_cmd="${3:-}"
 
-    # Wait for container to be ready
+    # Wait for container to be ready (up to 120s for first pull)
+    printf '%b\n' "  ${DIM}Waiting for Exegol container...${RESET}"
     local waited=0
-    while ! docker exec "$container" true 2>/dev/null && [[ $waited -lt 30 ]]; do
-        sleep 2; ((waited+=2))
+    while ! docker exec "$container" true 2>/dev/null && [[ $waited -lt 120 ]]; do
+        sleep 3; ((waited+=3))
+        printf '.' >&2
     done
+    echo ""
     if ! docker exec "$container" true 2>/dev/null; then
-        printf '%b\n' "  ${YELLOW}[!]${RESET} ${DIM}Exegol container not ready — skip tmux${RESET}" >&2
-        printf '%b\n' "  ${DIM}Attach later with:${RESET} ${YELLOW}dotsec tmux attach${RESET}" >&2
+        printf '%b\n' "  ${YELLOW}[!]${RESET} ${DIM}Exegol not ready after 2min — tmux will be created later${RESET}" >&2
+        printf '%b\n' "  ${DIM}Run${RESET} ${YELLOW}dotsec tmux attach${RESET} ${DIM}once container is up${RESET}" >&2
         return 0
     fi
 
