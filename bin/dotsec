@@ -87,6 +87,7 @@ ${BOLD}${BLUE}WORKSPACE${RESET}
   ${GREEN}spawn${RESET}    ${DIM}[session]${RESET}             Spawn 6-window tmux in Exegol + attach
   ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux sessions inside Exegol
   ${GREEN}log${RESET}      ${DIM}<cmd...>${RESET}             Run + log to commands.log
+  ${GREEN}archive${RESET}  ${DIM}[target]${RESET}           Archive workspace to tar.gz
 
 ${BOLD}${MAGENTA}EXEGOL${RESET}
   ${GREEN}exegol${RESET}   ${DIM}exec|shell|setup${RESET}     Run commands inside Exegol
@@ -513,6 +514,60 @@ cmd_log() {
     "$@"
 }
 
+# ── Archive ───────────────────────────────────────────────
+cmd_archive() {
+    local target="${1:-${TARGET:-}}"
+    local output_dir="${2:-${WORKSPACE_ROOT:-/workspace}}"
+
+    if [[ -z "$target" ]]; then
+        printf '%b\n' "${RED}[!] Usage: dotsec archive <target> [output_dir]${RESET}" >&2
+        exit 1
+    fi
+
+    local ws="${WORKSPACE_ROOT:-/workspace}/${target}"
+    if [[ ! -d "$ws" ]]; then
+        printf '%b\n' "${RED}[!] Workspace not found: ${ws}${RESET}" >&2
+        exit 1
+    fi
+
+    local container="${EXEGOL_CONTAINER:-exegol}"
+    local timestamp=$(date '+%Y%m%d-%H%M%S')
+    local archive_name="${target}-${timestamp}.tar.gz"
+    local archive_path="${output_dir}/${archive_name}"
+
+    printf '%b\n' "${BOLD}${CYAN}Archiving${RESET} ${GREEN}${target}${RESET} ${DIM}→${RESET} ${DIM}${archive_path}${RESET}"
+
+    # 1. Stop proxy if running
+    if docker ps --filter "name=mitmproxy-${target}" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        printf '%b\n' "  ${DIM}Stopping proxy...${RESET}"
+        TARGET="${target}" proxy_down
+    fi
+
+    # 2. Kill tmux session in Exegol if running
+    if docker exec "$container" tmux has-session -t "$target" 2>/dev/null; then
+        printf '%b\n' "  ${DIM}Killing tmux session in Exegol...${RESET}"
+        docker exec "$container" tmux kill-session -t "$target" 2>/dev/null || true
+    fi
+
+    # 3. Fix permissions
+    printf '%b\n' "  ${DIM}Fixing permissions...${RESET}"
+    chmod -R u+rwX,go-rwx "$ws" 2>/dev/null || true
+
+    # 4. Create archive
+    printf '%b\n' "  ${DIM}Creating archive...${RESET}"
+    mkdir -p "$output_dir"
+    tar czf "$archive_path" -C "$(dirname "$ws")" "$(basename "$ws")" 2>/dev/null
+
+    local size
+    size=$(du -h "$archive_path" 2>/dev/null | cut -f1)
+
+    echo ""
+    printf '%b\n' "  ${GREEN}Archive ready${RESET}"
+    printf '%b\n' "  ${DIM}Path${RESET}  ${CYAN}${archive_path}${RESET}"
+    printf '%b\n' "  ${DIM}Size${RESET}  ${YELLOW}${size}${RESET}"
+    echo ""
+}
+
 # ── Dashboard (Homer) ────────────────────────────────────
 __homer_gen_config() {
     local config="${DOTSEC_HOME}/homer/config.yml"
@@ -708,6 +763,7 @@ case "${1:-help}" in
     exegol)       shift; cmd_exegol "$@";;
     tmux)         shift; cmd_tmux "$@";;
     log)          shift; cmd_log "$@";;
+    archive)      shift; cmd_archive "$@";;
     info)         cmd_info;;
     completions)  shift; exec "${DOTSEC_HOME}/bin/dotsec-completions" "$@";;
     help|--help|-h) usage;;
