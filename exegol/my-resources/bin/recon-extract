@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"; mkdir -p "$OUT"
+
+# Extract endpoints + secrets from the crawled JS files; feed endpoints back
+# into the URL base.
+[[ -s "$OUT/js.txt" ]] || { echo "[!] run recon-crawl first"; exit 1; }
+: > "$OUT/endpoints.txt"; : > "$OUT/secrets.txt"
+while read -r js; do
+    [[ -n "$js" ]] || continue
+    if command -v xnLinkFinder >/dev/null 2>&1; then
+        if xnLinkFinder -i "$js" -o "$OUT/_xn.txt" 2>/dev/null; then cat "$OUT/_xn.txt" >> "$OUT/endpoints.txt"; fi
+    fi
+    if command -v linkfinder >/dev/null 2>&1; then linkfinder -i "$js" -o cli 2>/dev/null >> "$OUT/endpoints.txt" || true; fi
+    if command -v secretfinder >/dev/null 2>&1; then secretfinder -i "$js" -o cli 2>/dev/null >> "$OUT/secrets.txt" || true; fi
+done < "$OUT/js.txt"
+rm -f "$OUT/_xn.txt"
+sort -u "$OUT/endpoints.txt" -o "$OUT/endpoints.txt" 2>/dev/null || true
+if [[ -f "$OUT/urls_all.txt" ]]; then
+    cat "$OUT/endpoints.txt" >> "$OUT/urls_all.txt"
+    sort -u "$OUT/urls_all.txt" -o "$OUT/urls_all.txt"
+fi
+echo "[+] $(wc -l < "$OUT/endpoints.txt") endpoints, $(wc -l < "$OUT/secrets.txt") secret hits"
