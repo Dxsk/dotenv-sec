@@ -247,12 +247,33 @@ cmd_archive() {
 }
 
 # ── Remove ───────────────────────────────────────────────
+__engagement_names() {
+    local d
+    for d in "${WORKSPACE_ROOT:-/workspace}"/*/; do
+        [[ -d "$d" ]] || continue
+        basename "$d"
+    done
+}
+
 cmd_rm() {
-    local target="${1:-${TARGET:-}}"; shift || true
-    local do_archive=0
-    [[ "${1:-}" == "--archive" ]] && do_archive=1
+    local target="" do_archive=0 arg
+    for arg in "$@"; do
+        case "$arg" in
+            --archive) do_archive=1 ;;
+            -*) printf '%b\n' "${RED}[!] Unknown flag: ${arg}${RESET}" >&2; exit 1 ;;
+            *)  [[ -z "$target" ]] && target="$arg" ;;
+        esac
+    done
+    [[ -z "$target" ]] && target="${TARGET:-}"
+    # No target given → interactive pick with fzf.
     if [[ -z "$target" ]]; then
-        printf '%b\n' "${RED}[!] Usage: dotsec rm <target> [--archive]${RESET}" >&2; exit 1
+        if command -v fzf >/dev/null 2>&1; then
+            target=$(__engagement_names | fzf --prompt="rm engagement> " --height=40% --reverse \
+                --preview="cat ${WORKSPACE_ROOT:-/workspace}/{}/.env 2>/dev/null" 2>/dev/null || true)
+            [[ -z "$target" ]] && { printf '%b\n' "${DIM}Aborted${RESET}" >&2; exit 0; }
+        else
+            printf '%b\n' "${RED}[!] Usage: dotsec rm <target> [--archive]${RESET} ${DIM}(or install fzf to pick)${RESET}" >&2; exit 1
+        fi
     fi
     if [[ ! "$target" =~ ^[a-zA-Z0-9._-]+$ ]]; then
         printf '%b\n' "${RED}[!] Invalid target name: ${target}${RESET}" >&2; exit 1

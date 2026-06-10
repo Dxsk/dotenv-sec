@@ -166,3 +166,12 @@ _mk_engagement() {
     [ "$status" -ne 0 ]
     [[ "$output" == *"Invalid"* ]]
 }
+
+@test "rm with no target picks the engagement via fzf" {
+    _mk_engagement victim
+    # stub fzf selects the first listed engagement; 'y' confirms
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" WORKSPACE_ROOT="$WS" DOTSEC_CONFIG="$CFG" \
+        bash -c "printf 'y\n' | '$DOTSEC_BIN' rm"
+    [ ! -d "$WS/victim" ]
+    [[ "$output" == *"removed"* ]]
+}
