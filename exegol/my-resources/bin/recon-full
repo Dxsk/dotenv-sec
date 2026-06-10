@@ -7,7 +7,10 @@ mkdir -p "$OUT"
 echo "[*] full recon pipeline for $DOMAIN"
 recon-subs
 recon-alive
+recon-fingerprint || echo "[i] fingerprint step skipped"
 recon-crawl
+recon-urls || echo "[i] urls step skipped"
 recon-loot || echo "[i] loot step skipped"
+recon-extract || echo "[i] extract step skipped"
 recon-sourcemaps || echo "[i] sourcemaps step skipped"
 echo "[+] done → $OUT"

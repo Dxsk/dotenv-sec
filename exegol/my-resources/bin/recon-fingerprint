@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"; mkdir -p "$OUT"
+
+# Technology fingerprint of the alive hosts.
+[[ -s "$OUT/subdomains_alive.txt" ]] || { echo "[!] run recon-alive first"; exit 1; }
+echo "[*] tech fingerprint"
+httpx-toolkit -l "$OUT/subdomains_alive.txt" -td -silent 2>/dev/null > "$OUT/tech.txt" || true
+if command -v whatweb >/dev/null 2>&1; then whatweb -i "$OUT/subdomains_alive.txt" --no-errors >> "$OUT/tech.txt" 2>/dev/null || true; fi
+echo "[+] tech → $OUT/tech.txt"

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"; mkdir -p "$OUT"
+
+# Aggregate all passive URL sources into one deduplicated base.
+echo "[*] aggregating url sources for $DOMAIN"
+{
+    [[ -f "$OUT/allurls.txt" ]] && cat "$OUT/allurls.txt"
+    gau "$DOMAIN" 2>/dev/null || true
+    if command -v waybackurls >/dev/null 2>&1; then printf '%s\n' "$DOMAIN" | waybackurls 2>/dev/null || true; fi
+    if command -v urlfinder   >/dev/null 2>&1; then urlfinder -d "$DOMAIN" -silent 2>/dev/null || true; fi
+    if command -v waymore     >/dev/null 2>&1; then waymore -i "$DOMAIN" -mode U 2>/dev/null || true; fi
+} | sort -u > "$OUT/urls_all.txt"
+echo "[+] $(wc -l < "$OUT/urls_all.txt") urls → $OUT/urls_all.txt"

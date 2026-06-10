@@ -50,7 +50,7 @@ run_deploy() { bash "${DOTSEC_HOME}/exegol/my-resources/deploy.sh"; }
 }
 
 @test "recon scripts fail fast when DOMAIN is unset" {
-    for s in recon-subs recon-alive recon-crawl recon-loot recon-sourcemaps recon-full; do
+    for s in recon-subs recon-alive recon-crawl recon-loot recon-sourcemaps recon-full recon-urls recon-extract recon-fingerprint; do
         run env -u DOMAIN bash "${DOTSEC_HOME}/exegol/my-resources/bin/$s"
         [ "$status" -ne 0 ] || { echo "$s did not guard DOMAIN"; false; }
     done
