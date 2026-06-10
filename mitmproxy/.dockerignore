@@ -1,0 +1,4 @@
+# Runtime state must never enter the build context (and may be unreadable by a
+# rootless Docker daemon → "no permission to read" build failures).
+certs/
+flows/
