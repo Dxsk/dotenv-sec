@@ -50,14 +50,18 @@ if [ -n "$HTTP_PROXY" ] && [ -z "$CA_FILE" ]; then
     echo "[!] No CA cert mounted: ignoring cert errors"
 fi
 
-# Preload extensions if provided
+# Preload extensions if provided. Chromium keeps only ONE --load-extension, so
+# every unpacked dir must be passed as a single comma-separated value.
 if [ -d /extensions ] && [ "$(ls -A /extensions 2>/dev/null)" ]; then
-    EXT_FLAGS=""
+    EXT_LIST=""
     for ext in /extensions/*/; do
-        EXT_FLAGS="$EXT_FLAGS --load-extension=$ext"
+        [ -f "${ext}manifest.json" ] || continue
+        EXT_LIST="${EXT_LIST:+${EXT_LIST},}${ext%/}"
     done
-    CHROMIUM_FLAGS="$CHROMIUM_FLAGS $EXT_FLAGS"
-    echo "[+] Extensions loaded"
+    if [ -n "$EXT_LIST" ]; then
+        CHROMIUM_FLAGS="$CHROMIUM_FLAGS --load-extension=$EXT_LIST"
+        echo "[+] Extensions loaded: $EXT_LIST"
+    fi
 fi
 
 echo "[*] Launching Chromium..."
