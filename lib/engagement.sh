@@ -121,6 +121,34 @@ DOC
     fi
 }
 
+# Emit `export …` lines on stdout so a shell wrapper can `source <(dotsec env x)`.
+# stdout stays clean (only the env files); errors go to stderr.
+cmd_env() {
+    local target="${1:-${TARGET:-}}"
+    if [[ -z "$target" ]]; then
+        printf '%b\n' "${RED}[!] Usage: dotsec env <target>${RESET}" >&2
+        exit 1
+    fi
+    local envfile="${WORKSPACE_ROOT}/${target}/.env"
+    local secfile="${WORKSPACE_ROOT}/${target}/.env.secrets"
+    if [[ ! -f "$envfile" ]]; then
+        printf '%b\n' "${RED}[!] No .env for ${target} at ${envfile}${RESET}" >&2
+        exit 1
+    fi
+    if ! __sec_guard_envfile "$envfile"; then
+        printf '%b\n' "${RED}[!] .env contains command substitution — refusing${RESET}" >&2
+        exit 1
+    fi
+    cat "$envfile"
+    if [[ -f "$secfile" ]]; then
+        if ! __sec_guard_envfile "$secfile"; then
+            printf '%b\n' "${RED}[!] .env.secrets contains command substitution — refusing${RESET}" >&2
+            exit 1
+        fi
+        cat "$secfile"
+    fi
+}
+
 cmd_load() {
     local target="${1:-${TARGET:-}}"
     if [[ -z "$target" ]]; then

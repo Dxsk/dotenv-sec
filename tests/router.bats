@@ -66,6 +66,32 @@ _mk_engagement() {
     [ "$old" != "$(grep DOTSEC_API_TOKEN "$WS/acme/.env.secrets")" ]
 }
 
+@test "env emits export lines for an engagement (clean stdout)" {
+    ws="$(mktemp -d)"; cfg="$(mktemp -d)"
+    mkdir -p "$ws/acme"
+    printf 'export TARGET="acme"\nexport DOMAIN="acme.com"\n' > "$ws/acme/.env"
+    printf 'export MITMWEB_PASS="secret123"\n' > "$ws/acme/.env.secrets"
+    run env WORKSPACE_ROOT="$ws" DOTSEC_CONFIG="$cfg" "$DOTSEC_BIN" env acme
+    rm -rf "$ws" "$cfg"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'export TARGET="acme"'* ]]
+    [[ "$output" == *'export MITMWEB_PASS="secret123"'* ]]
+    [[ "$output" != *'[!]'* ]]
+}
+@test "env rejects command substitution in .env" {
+    ws="$(mktemp -d)"; cfg="$(mktemp -d)"
+    mkdir -p "$ws/acme"
+    printf 'export X=$(id)\n' > "$ws/acme/.env"
+    run env WORKSPACE_ROOT="$ws" DOTSEC_CONFIG="$cfg" "$DOTSEC_BIN" env acme
+    rm -rf "$ws" "$cfg"
+    [ "$status" -ne 0 ]
+}
+@test "env without target shows usage" {
+    run "$DOTSEC_BIN" env
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Usage: dotsec env"* ]]
+}
+
 @test "proxy with a bad subcommand shows usage" {
     run "$DOTSEC_BIN" proxy bogus
     [[ "$output" == *"proxy up|down|status|logs"* ]]

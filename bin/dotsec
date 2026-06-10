@@ -74,6 +74,7 @@ case "${1:-help}" in
         secrets_rotate "${WORKSPACE_ROOT}/${_t}" "$_type"
         printf '%b\n' "${GREEN}Rotated${RESET} ${CYAN}${_t}${RESET} ${DIM}(${_type})${RESET}"
         ;;
+    env)          shift; cmd_env "$@";;
     info)         cmd_info;;
     completions)  shift; exec "${DOTSEC_HOME}/bin/dotsec-completions" "$@";;
     help|--help|-h) usage;;
