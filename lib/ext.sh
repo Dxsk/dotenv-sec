@@ -50,6 +50,43 @@ ext_list() {
     __ext_each __ext_list_one
 }
 
+# __ext_fetch_github <name> <repo> <tag> <sha256> <subdir>
+# Downloads the tag tarball, verifies sha256, extracts the unpacked extension
+# (subdir, or repo root) into $DOTSEC_EXT_DIR/<name>/.
+__ext_fetch_github() {
+    local name="$1" repo="$2" tag="$3" want="$4" subdir="${5:-.}"
+    local dir; dir="$(__ext_dir)"
+    local url="https://github.com/${repo}/archive/refs/tags/${tag}.tar.gz"
+    local tmp; tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' RETURN
+    if ! curl -fsSL "$url" -o "$tmp/dl.tar.gz"; then
+        printf '%b\n' "  ${RED}[!] download failed: ${url}${RESET}" >&2
+        return 1
+    fi
+    local got; got="$(sha256sum "$tmp/dl.tar.gz" | cut -d' ' -f1)"
+    if [[ -n "$want" && "$got" != "$want" ]]; then
+        printf '%b\n' "  ${RED}[!] sha256 mismatch for ${name}${RESET}" >&2
+        printf '%b\n' "      want ${want}" >&2
+        printf '%b\n' "      got  ${got}" >&2
+        return 1
+    fi
+    mkdir -p "$tmp/x"
+    tar -xzf "$tmp/dl.tar.gz" -C "$tmp/x" --strip-components=1
+    local src="$tmp/x"
+    if [[ "$subdir" != "." && -n "$subdir" ]]; then
+        src="$tmp/x/$subdir"
+    fi
+    if [[ ! -f "$src/manifest.json" ]]; then
+        printf '%b\n' "  ${RED}[!] no manifest.json in ${name} (${subdir})${RESET}" >&2
+        return 1
+    fi
+    rm -rf "${dir:?}/$name"
+    mkdir -p "$dir/$name"
+    cp -a "$src/." "$dir/$name/"
+    echo "$tag" > "$dir/$name/.dotsec-version"
+    printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(${tag})${RESET}"
+}
+
 ext_sync() {
     # Orchestration implemented in a later task.
     printf '%b\n' "${YELLOW}[*]${RESET} ${DIM}ext sync not yet implemented${RESET}" >&2
