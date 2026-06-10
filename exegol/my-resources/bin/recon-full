@@ -8,5 +8,6 @@ echo "[*] full recon pipeline for $DOMAIN"
 recon-subs
 recon-alive
 recon-crawl
+recon-loot || echo "[i] loot step skipped"
 recon-sourcemaps || echo "[i] sourcemaps step skipped"
 echo "[+] done → $OUT"

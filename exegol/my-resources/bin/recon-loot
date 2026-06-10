@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+mkdir -p "$OUT"
+
+# Pull juicy files (configs/archives/backups/data) from the crawled link list.
+[[ -s "$OUT/allurls.txt" ]] || { echo "[!] run recon-crawl first (need allurls.txt)"; exit 1; }
+LOOT="$OUT/loot"; mkdir -p "$LOOT"
+
+# juicy extensions: configs, archives, backups, data
+exts='json|jsonc|js|map|xml|yml|yaml|sql|conf|config|cfg|env|ini|properties|bak|backup|old|swp|zip|tar|tar\.gz|tgz|gz|rar|7z|log|csv'
+echo "[*] filtering juicy files from allurls.txt"
+grep -iE "\.(${exts})($|\?)" "$OUT/allurls.txt" 2>/dev/null | sort -u > "$LOOT/juicy_urls.txt" || true
+echo "[+] $(wc -l < "$LOOT/juicy_urls.txt" 2>/dev/null || echo 0) juicy urls → $LOOT/juicy_urls.txt"
+
+echo "[*] downloading"
+got=0
+while read -r u; do
+    [[ -n "$u" ]] || continue
+    fname="$(printf '%s' "$u" | sed -E 's|https?://||; s|[/?&=:]|_|g')"
+    # shellcheck disable=SC2086
+    if curl -fsSL --max-time 20 ${HTTP_PROXY:+--proxy "$HTTP_PROXY"} ${UA:+-A "$UA"} "$u" -o "$LOOT/$fname" 2>/dev/null; then
+        got=$((got+1))
+    fi
+done < "$LOOT/juicy_urls.txt"
+echo "[+] $got files downloaded → $LOOT"
