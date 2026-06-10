@@ -16,54 +16,16 @@ if [[ -z "${WORKSPACE_ROOT:-}" ]]; then
 fi
 
 DOTSEC_LIB="${DOTSEC_HOME}/lib"
-for _m in ui; do
+for _m in ui core; do
     # shellcheck source=/dev/null
     source "${DOTSEC_LIB}/${_m}.sh"
 done
-
-__docker_network_ensure() {
-    local net="${1:-dotsec-proxy-net}"
-    docker network inspect "$net" &>/dev/null || docker network create "$net"
-}
+__dotsec_load_global
 
 __homer_reload_if_running() {
     if docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q .; then
         __homer_gen_config >/dev/null 2>&1
         docker restart dotsec-homer >/dev/null 2>&1 || true
-    fi
-}
-
-__env_domain() {
-    local domain
-    domain=$(grep -oP 'DOMAIN="?\K[^"]+' "$1" 2>/dev/null || echo "")
-    echo "${domain}"
-}
-
-# ── Global config (always sourced, overridden per-engagement) ──
-__dotsec_load_global() {
-    if [[ -f "${DOTSEC_CONFIG}/config" ]]; then
-        source "${DOTSEC_CONFIG}/config"
-    fi
-    # Auto-detect Exegol container if not set
-    if [[ -z "${EXEGOL_CONTAINER:-}" ]]; then
-        local detected
-        detected=$(docker ps -a --filter "name=exegol" --format '{{.Names}}' 2>/dev/null | head -1)
-        [[ -n "$detected" ]] && EXEGOL_CONTAINER="$detected"
-    fi
-}
-__dotsec_load_global
-
-__require_docker() {
-    if [[ -z "$(command -v docker)" ]]; then
-        printf '%b\n' "${RED}[!] docker is required but not installed${RESET}" >&2
-        exit 1
-    fi
-}
-
-__require_tmux() {
-    if [[ -z "$(command -v tmux)" ]]; then
-        printf '%b\n' "${RED}[!] tmux is required but not installed${RESET}" >&2
-        exit 1
     fi
 }
 
