@@ -52,80 +52,91 @@ ext_list() {
 
 # __ext_fetch_github <name> <repo> <tag> <sha256> <subdir>
 # Downloads the tag tarball, verifies sha256, extracts the unpacked extension
-# (subdir, or repo root) into $DOTSEC_EXT_DIR/<name>/.
+# (subdir, or repo root) into $DOTSEC_EXT_DIR/<name>/. The body runs in a
+# subshell so the tmp-cleanup trap cannot fire on a caller's later return.
 __ext_fetch_github() {
     local name="$1" repo="$2" tag="$3" want="$4" subdir="${5:-.}"
     local dir; dir="$(__ext_dir)"
     local url="https://github.com/${repo}/archive/refs/tags/${tag}.tar.gz"
-    local tmp; tmp="$(mktemp -d)"
-    trap 'rm -rf "$tmp"' RETURN
-    if ! curl -fsSL "$url" -o "$tmp/dl.tar.gz"; then
-        printf '%b\n' "  ${RED}[!] download failed: ${url}${RESET}" >&2
-        return 1
-    fi
-    local got; got="$(sha256sum "$tmp/dl.tar.gz" | cut -d' ' -f1)"
-    if [[ -n "$want" && "$got" != "$want" ]]; then
-        printf '%b\n' "  ${RED}[!] sha256 mismatch for ${name}${RESET}" >&2
-        printf '%b\n' "      want ${want}" >&2
-        printf '%b\n' "      got  ${got}" >&2
-        return 1
-    fi
-    mkdir -p "$tmp/x"
-    tar -xzf "$tmp/dl.tar.gz" -C "$tmp/x" --strip-components=1
-    local src="$tmp/x"
-    if [[ "$subdir" != "." && -n "$subdir" ]]; then
-        src="$tmp/x/$subdir"
-    fi
-    if [[ ! -f "$src/manifest.json" ]]; then
-        printf '%b\n' "  ${RED}[!] no manifest.json in ${name} (${subdir})${RESET}" >&2
-        return 1
-    fi
-    rm -rf "${dir:?}/$name"
-    mkdir -p "$dir/$name"
-    cp -a "$src/." "$dir/$name/"
-    echo "$tag" > "$dir/$name/.dotsec-version"
-    printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(${tag})${RESET}"
+    (
+        set -euo pipefail
+        local tmp; tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+        if ! curl -fsSL "$url" -o "$tmp/dl.tar.gz"; then
+            printf '%b\n' "  ${RED}[!] download failed: ${url}${RESET}" >&2
+            exit 1
+        fi
+        local got; got="$(sha256sum "$tmp/dl.tar.gz" | cut -d' ' -f1)"
+        if [[ -n "$want" && "$got" != "$want" ]]; then
+            printf '%b\n' "  ${RED}[!] sha256 mismatch for ${name}${RESET}" >&2
+            printf '%b\n' "      want ${want}" >&2
+            printf '%b\n' "      got  ${got}" >&2
+            exit 1
+        fi
+        mkdir -p "$tmp/x"
+        tar -xzf "$tmp/dl.tar.gz" -C "$tmp/x" --strip-components=1
+        local src="$tmp/x"
+        if [[ "$subdir" != "." && -n "$subdir" ]]; then
+            src="$tmp/x/$subdir"
+        fi
+        if [[ ! -f "$src/manifest.json" ]]; then
+            printf '%b\n' "  ${RED}[!] no manifest.json in ${name} (${subdir})${RESET}" >&2
+            exit 1
+        fi
+        rm -rf "${dir:?}/$name"
+        mkdir -p "$dir/$name"
+        cp -a "$src/." "$dir/$name/"
+        echo "$tag" > "$dir/$name/.dotsec-version"
+        printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(${tag})${RESET}"
+    )
 }
 
 # __ext_fetch_webstore <name> <id> <version> <sha256>
 # Downloads the pinned .crx, verifies sha256, carves out the zip payload
-# (CRX2/CRX3 header skipped by locating the first PK\x03\x04), unzips into
+# (CRX2/CRX3 header skipped via the first PK\x03\x04), unzips into
 # $DOTSEC_EXT_DIR/<name>/.
 __ext_fetch_webstore() {
     local name="$1" id="$2" ver="$3" want="$4"
     local dir; dir="$(__ext_dir)"
-    local url="https://clients2.google.com/service/update2/crx?response=redirect&acceptformat=crx2,crx3&prodversion=${ver}&x=id%3D${id}%26installsource%3Dondemand%26uc"
-    local tmp; tmp="$(mktemp -d)"
-    trap 'rm -rf "$tmp"' RETURN
-    if ! curl -fsSL "$url" -o "$tmp/e.crx"; then
-        printf '%b\n' "  ${RED}[!] crx download failed: ${name}${RESET}" >&2
-        return 1
-    fi
-    local got; got="$(sha256sum "$tmp/e.crx" | cut -d' ' -f1)"
-    if [[ -n "$want" && "$got" != "$want" ]]; then
-        printf '%b\n' "  ${RED}[!] sha256 mismatch for ${name}${RESET}" >&2
-        printf '%b\n' "      want ${want}" >&2
-        printf '%b\n' "      got  ${got}" >&2
-        return 1
-    fi
-    # Skip the Cr24 header: the zip payload starts at the first PK\x03\x04.
-    local off; off="$(grep -aboFm1 $'PK\x03\x04' "$tmp/e.crx" | cut -d: -f1 || true)"
-    if [[ -z "$off" ]]; then
-        printf '%b\n' "  ${RED}[!] no zip payload in crx ${name}${RESET}" >&2
-        return 1
-    fi
-    tail -c "+$((off + 1))" "$tmp/e.crx" > "$tmp/e.zip"
-    mkdir -p "$tmp/x"
-    unzip -qo "$tmp/e.zip" -d "$tmp/x"
-    if [[ ! -f "$tmp/x/manifest.json" ]]; then
-        printf '%b\n' "  ${RED}[!] no manifest.json in crx ${name}${RESET}" >&2
-        return 1
-    fi
-    rm -rf "${dir:?}/$name"
-    mkdir -p "$dir/$name"
-    cp -a "$tmp/x/." "$dir/$name/"
-    echo "$ver" > "$dir/$name/.dotsec-version"
-    printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(crx ${ver})${RESET}"
+    # prodversion is the BROWSER version Google serves a compatible crx for, not
+    # the extension version (the URL always returns the latest; ver pins for the
+    # idempotence marker and a sha256 mismatch flags any upstream change).
+    local browser_ver="${DOTSEC_CHROME_MAJOR:-149}"
+    local url="https://clients2.google.com/service/update2/crx?response=redirect&acceptformat=crx2,crx3&prodversion=${browser_ver}&x=id%3D${id}%26installsource%3Dondemand%26uc"
+    (
+        set -euo pipefail
+        local tmp; tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+        if ! curl -fsSL "$url" -o "$tmp/e.crx"; then
+            printf '%b\n' "  ${RED}[!] crx download failed: ${name}${RESET}" >&2
+            exit 1
+        fi
+        local got; got="$(sha256sum "$tmp/e.crx" | cut -d' ' -f1)"
+        if [[ -n "$want" && "$got" != "$want" ]]; then
+            printf '%b\n' "  ${RED}[!] sha256 mismatch for ${name}${RESET}" >&2
+            printf '%b\n' "      want ${want}" >&2
+            printf '%b\n' "      got  ${got}" >&2
+            exit 1
+        fi
+        # head -1: grep -o can emit several matches from one binary "line".
+        local off; off="$(grep -aboFm1 $'PK\x03\x04' "$tmp/e.crx" | head -1 | cut -d: -f1 || true)"
+        if [[ -z "$off" ]]; then
+            printf '%b\n' "  ${RED}[!] no zip payload in crx ${name}${RESET}" >&2
+            exit 1
+        fi
+        tail -c "+$((off + 1))" "$tmp/e.crx" > "$tmp/e.zip"
+        mkdir -p "$tmp/x"
+        unzip -qo "$tmp/e.zip" -d "$tmp/x"
+        if [[ ! -f "$tmp/x/manifest.json" ]]; then
+            printf '%b\n' "  ${RED}[!] no manifest.json in crx ${name}${RESET}" >&2
+            exit 1
+        fi
+        rm -rf "${dir:?}/$name"
+        mkdir -p "$dir/$name"
+        cp -a "$tmp/x/." "$dir/$name/"
+        echo "$ver" > "$dir/$name/.dotsec-version"
+        printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(crx ${ver})${RESET}"
+    )
 }
 
 # __ext_sync_one <name> <provider> <source> <ref> <sha256> <subdir>
