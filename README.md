@@ -142,9 +142,8 @@ This installs:
 
 ## Docker Security
 
-- Base images pinned with `@sha256` digests
-- All packages pinned to exact versions
-- Non-root users inside containers
+- Base images pinned by `@sha256` digest
+- Containers run as root today (non-root hardening tracked separately); all service ports are >1024 (rootless-Docker friendly)
 - Ports > 1024 (rootless Docker compatible)
 - CI pipeline runs Trivy vulnerability scans on every push
 - Scheduled scan every Monday + automatic CVE issue creation
