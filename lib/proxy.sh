@@ -44,7 +44,7 @@ proxy_up() {
             web_pass=$(cat "$passfile" 2>/dev/null || echo "")
         fi
         if [[ -z "$web_pass" ]]; then
-            web_pass=$(set +o pipefail; tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+            web_pass=$(set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
             echo "$web_pass" > "$passfile"
         fi
     fi

@@ -3,10 +3,12 @@
 # Sourced by bin/dotsec. Depends on ui.sh for colors.
 # Lib functions are PURE (no prompts); confirmations live in bin/dotsec.
 
-# Random alnum string, pipefail-safe (head closes the pipe → SIGPIPE on tr).
+# Random alnum string. LC_ALL=C makes tr treat /dev/urandom byte-by-byte (in a
+# UTF-8 locale tr would let multi-byte sequences through and the result would be
+# shorter than requested). pipefail off: head closes the pipe → SIGPIPE on tr.
 __sec_rand() {
     local len="${1:-32}"
-    ( set +o pipefail; tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$len" )
+    ( set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$len" )
 }
 
 # Upsert `export KEY="VALUE"` in an env file (idempotent).
