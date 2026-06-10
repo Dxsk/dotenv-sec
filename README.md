@@ -126,19 +126,30 @@ dotsec exegol setup                  # install uv + pnpm inside Exegol
 
 ### Exegol tool provisioning
 
-The project ships a `my-resources` bundle deployed to `~/.exegol/my-resources/dotenv-sec/`
-(via `make install` or `make exegol-setup`).
+The project ships a `my-resources` bundle deployed (merged) to `~/.exegol/my-resources/`
+via `make exegol-setup` (also run by `make install`).
+
+The bundle includes:
+- **bin/** scripts: `recon-subs`, `recon-alive`, `recon-crawl`, `recon-loot`, `recon-sourcemaps`, `recon-full`, `dl`
+- Shell aliases and preloaded history
 
 ```bash
-# Inside the Exegol container, run:
-dotsec exegol setup
-# or manually:
-docker exec -it exegol bash /opt/resources/dotenv-sec/setup.sh
+make exegol-setup   # deploy/merge bundle to ~/.exegol/my-resources/
 ```
 
-This installs:
-- **uv** - fast Python package manager (https://docs.astral.sh/uv/)
-- **pnpm** - fast, disk-efficient Node.js package manager (https://pnpm.io/)
+Scripts run **inside** the Exegol container, driven by engagement env vars (`$DOMAIN`, `$WORKSPACE`).
+Example in a loaded engagement window:
+
+```bash
+recon-full
+```
+
+On first container start, Exegol auto-runs `/opt/my-resources/setup/load_user_setup.sh`.
+To trigger it manually:
+
+```bash
+dotsec exegol setup
+```
 
 ## Docker Security
 

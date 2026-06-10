@@ -118,7 +118,7 @@ cmd_exegol() {
                 printf '%b\n' "  ${DIM}Start it with:${RESET} ${YELLOW}exegol start ${container}${RESET}" >&2
                 exit 1
             fi
-            docker exec ${docker_tty} "$container" bash /opt/resources/dotenv-sec/setup.sh
+            docker exec ${docker_tty} "$container" bash /opt/my-resources/setup/load_user_setup.sh
             ;;
         *)
             printf '%b\n' "${RED}[!] Usage: dotsec exegol exec|shell|setup${RESET}" >&2
