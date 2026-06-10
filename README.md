@@ -173,6 +173,15 @@ make install
 source ~/.zshrc
 ```
 
+## Development
+
+```bash
+pre-commit install   # runs shellcheck + bats on every commit
+make test            # bats test suite
+make lint            # shellcheck all bash
+make smoke           # Docker integration smoke (requires make build)
+```
+
 ## License
 
 MIT: see [LICENSE](LICENSE).

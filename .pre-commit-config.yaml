@@ -1,0 +1,15 @@
+# Run once:  pre-commit install   (then hooks run on every commit)
+repos:
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck -x
+        language: system
+        files: '^(bin/dotsec|bin/dotsec-build|lib/.*\.sh|tests/integration-smoke\.sh|tests/stubs/.*)$'
+      - id: bats
+        name: bats
+        entry: bats tests/
+        language: system
+        pass_filenames: false
+        files: '\.(sh|bats)$'
