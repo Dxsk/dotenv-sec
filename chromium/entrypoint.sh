@@ -18,17 +18,29 @@ fi
 if [ -n "$CA_FILE" ]; then
     echo "[*] Importing mitmproxy CA..."
 
-    # System trust store
-    cp "$CA_FILE" /usr/local/share/ca-certificates/mitmproxy-ca.crt
-    update-ca-certificates
+    # System trust store. Arch uses update-ca-trust + trust-source/anchors;
+    # Debian uses update-ca-certificates + /usr/local/share/ca-certificates.
+    # Best-effort only — Chromium trusts the CA via the NSS DB below, so a
+    # missing system tool must never abort the launch (set -e).
+    if command -v update-ca-trust >/dev/null 2>&1; then
+        cp "$CA_FILE" /etc/ca-certificates/trust-source/anchors/mitmproxy-ca.crt 2>/dev/null \
+            && update-ca-trust extract 2>/dev/null || true
+    elif command -v update-ca-certificates >/dev/null 2>&1; then
+        mkdir -p /usr/local/share/ca-certificates
+        cp "$CA_FILE" /usr/local/share/ca-certificates/mitmproxy-ca.crt 2>/dev/null \
+            && update-ca-certificates 2>/dev/null || true
+    fi
 
-    # Chromium NSS trust store
+    # Chromium NSS trust store (what Chromium actually reads). The DB is
+    # pre-created in the image; only init it when missing. Always feed stdin
+    # from /dev/null: on an existing DB certutil otherwise loops forever
+    # prompting for the store password on a non-TTY.
     NSSDB="/root/.pki/nssdb"
     mkdir -p "$NSSDB"
-    certutil -N -d sql:"$NSSDB" --empty-password 2>/dev/null || true
+    [ -f "$NSSDB/cert9.db" ] || certutil -N -d sql:"$NSSDB" --empty-password </dev/null 2>/dev/null || true
     certutil -A -d sql:"$NSSDB" -t "C,," -n "mitmproxy-proxy" \
-        -i "$CA_FILE" 2>/dev/null && \
-        echo "[+] CA trusted (system + Chromium NSS)" || \
+        -i "$CA_FILE" </dev/null 2>/dev/null && \
+        echo "[+] CA trusted (Chromium NSS)" || \
         echo "[!] CA trust failed : add --ignore-certificate-errors manually"
 fi
 

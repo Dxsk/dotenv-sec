@@ -116,19 +116,35 @@ cmd_browser() {
     fi
 
     local proxy_host="mitmproxy-${target}"
-    # Forward the host (X)Wayland display: DISPLAY + X11 socket + the X auth
-    # cookie (xhost isn't always installed; the cookie is the robust path).
-    local x11=()
-    if [[ -n "${DISPLAY:-}" ]]; then
-        x11+=(-e "DISPLAY=${DISPLAY}" -v /tmp/.X11-unix:/tmp/.X11-unix:ro)
+
+    # Display forwarding. Prefer NATIVE WAYLAND: under GNOME/Mutter (and most
+    # Wayland compositors) Chromium's X11 software bitmap presenter cannot paint
+    # into an XWayland window ("XGetWindowAttributes failed"), so the window
+    # never shows. Speaking Wayland to the host compositor bypasses XWayland
+    # entirely. Fall back to X11 for non-Wayland (native Xorg) sessions.
+    local display=() flags="--no-sandbox --disable-dev-shm-usage --disable-features=TranslateUI"
+    local wl_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}"
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]] && [[ -S "$wl_sock" ]]; then
+        display=(--ipc=host
+            -e XDG_RUNTIME_DIR=/tmp
+            -e "WAYLAND_DISPLAY=${WAYLAND_DISPLAY}"
+            -v "${wl_sock}:/tmp/${WAYLAND_DISPLAY}")
+        flags+=" --ozone-platform=wayland --enable-features=UseOzonePlatform"
+    elif [[ -n "${DISPLAY:-}" ]]; then
+        display=(--ipc=host
+            -e "DISPLAY=${DISPLAY}"
+            -v /tmp/.X11-unix:/tmp/.X11-unix:ro)
         local xauth="${XAUTHORITY:-$HOME/.Xauthority}"
-        [[ -f "$xauth" ]] && x11+=(-e XAUTHORITY=/tmp/.Xauthority -v "${xauth}:/tmp/.Xauthority:ro")
+        [[ -f "$xauth" ]] && display+=(-e XAUTHORITY=/tmp/.Xauthority -v "${xauth}:/tmp/.Xauthority:ro")
+        flags+=" --disable-gpu --ozone-platform=x11"
     fi
+
     docker run --rm \
         --network dotsec-proxy-net \
         -e HTTP_PROXY="http://${proxy_host}:8080" \
         -e HTTPS_PROXY="http://${proxy_host}:8080" \
-        "${x11[@]}" \
+        -e CHROMIUM_FLAGS="${flags}" \
+        "${display[@]}" \
         -v "${ws}/proxy/certs:/certs:ro" \
         -p 127.0.0.1:9222:9222 \
         dotenv-sec/chromium:latest
