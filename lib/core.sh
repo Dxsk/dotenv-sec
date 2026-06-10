@@ -23,6 +23,10 @@ __dotsec_load_global() {
         detected=$(docker ps -a --filter "name=exegol" --format '{{.Names}}' 2>/dev/null | head -1)
         [[ -n "$detected" ]] && EXEGOL_CONTAINER="$detected"
     fi
+    # Last statement must not leak a non-zero status: under `set -e` this
+    # function is called top-level and a falsy [[ -n ]] above would abort dotsec
+    # on any host without an exegol container.
+    return 0
 }
 
 __require_docker() {

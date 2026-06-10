@@ -19,3 +19,17 @@ load test_helper
     run "$DOTSEC_BIN" definitely-not-a-command
     [[ "$output" == *"Unknown command"* ]]
 }
+
+@test "__dotsec_load_global is set -e safe with no exegol container" {
+    run env DOTSEC_HOME="$DOTSEC_HOME" bash -euo pipefail -c '
+        DOTSEC_CONFIG=$(mktemp -d)
+        docker() { :; }   # stub: no output, returns 0 → no container detected
+        source "$DOTSEC_HOME/lib/ui.sh"
+        source "$DOTSEC_HOME/lib/core.sh"
+        unset EXEGOL_CONTAINER
+        __dotsec_load_global
+        echo REACHED
+    '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *REACHED* ]]
+}
