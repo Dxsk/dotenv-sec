@@ -62,3 +62,40 @@ secrets_init() {
     [[ -f "${keydir}/id_ed25519.pub" ]] && chmod 644 "${keydir}/id_ed25519.pub"
     return 0
 }
+
+__sec_rot_token() {
+    local f="$1/.env.secrets"
+    __sec_env_set "$f" DOTSEC_SESSION_SECRET "$(__sec_rand 32)"
+    __sec_env_set "$f" DOTSEC_API_TOKEN "$(__sec_rand 32)"
+    __sec_chmod_strict "$f"
+}
+__sec_rot_mitmweb() {
+    local f="$1/.env.secrets"
+    __sec_env_set "$f" MITMWEB_PASS "$(__sec_rand 16)"
+    __sec_chmod_strict "$f"
+}
+__sec_rot_ssh() {
+    local d="$1/keys"
+    mkdir -p "$d"
+    rm -f "$d/id_ed25519" "$d/id_ed25519.pub"
+    ssh-keygen -t ed25519 -N "" -C "dotsec-$(basename "$1")" -f "$d/id_ed25519" >/dev/null 2>&1
+    __sec_chmod_strict "$d" "$d/id_ed25519"
+    [[ -f "$d/id_ed25519.pub" ]] && chmod 644 "$d/id_ed25519.pub"
+}
+__sec_rot_ca() {
+    rm -f "$1"/proxy/certs/mitmproxy-ca* 2>/dev/null || true
+}
+
+# Force regeneration. type ∈ all|token|mitmweb|ssh|ca. PURE (no prompt).
+secrets_rotate() {
+    local ws="$1" type="${2:-all}"
+    case "$type" in
+        all)     __sec_rot_token "$ws"; __sec_rot_mitmweb "$ws"; __sec_rot_ssh "$ws"; __sec_rot_ca "$ws" ;;
+        token)   __sec_rot_token "$ws" ;;
+        mitmweb) __sec_rot_mitmweb "$ws" ;;
+        ssh)     __sec_rot_ssh "$ws" ;;
+        ca)      __sec_rot_ca "$ws" ;;
+        *) printf '%b\n' "${RED}[!] Unknown secret type: ${type}${RESET} ${DIM}(all|token|mitmweb|ssh|ca)${RESET}" >&2; return 1 ;;
+    esac
+    return 0
+}

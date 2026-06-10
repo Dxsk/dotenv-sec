@@ -65,3 +65,36 @@ teardown() { rm -rf "$TMP"; }
     [ "$before" = "$after" ]
     [ "$before_key" = "$after_key" ]
 }
+
+@test "secrets_rotate token changes token values" {
+    secrets_init "$TMP"
+    old="$(grep '^export DOTSEC_API_TOKEN=' "${TMP}/.env.secrets")"
+    secrets_rotate "$TMP" token
+    new="$(grep '^export DOTSEC_API_TOKEN=' "${TMP}/.env.secrets")"
+    [ "$old" != "$new" ]
+}
+@test "secrets_rotate mitmweb changes only the password" {
+    secrets_init "$TMP"
+    old_tok="$(grep '^export DOTSEC_API_TOKEN=' "${TMP}/.env.secrets")"
+    old_pw="$(grep '^export MITMWEB_PASS=' "${TMP}/.env.secrets")"
+    secrets_rotate "$TMP" mitmweb
+    [ "$old_tok" = "$(grep '^export DOTSEC_API_TOKEN=' "${TMP}/.env.secrets")" ]
+    [ "$old_pw" != "$(grep '^export MITMWEB_PASS=' "${TMP}/.env.secrets")" ]
+}
+@test "secrets_rotate ssh regenerates the key" {
+    secrets_init "$TMP"
+    old="$(cat "${TMP}/keys/id_ed25519")"
+    secrets_rotate "$TMP" ssh
+    [ "$old" != "$(cat "${TMP}/keys/id_ed25519")" ]
+}
+@test "secrets_rotate ca removes existing CA files" {
+    secrets_init "$TMP"
+    touch "${TMP}/proxy/certs/mitmproxy-ca-cert.pem"
+    secrets_rotate "$TMP" ca
+    [ ! -f "${TMP}/proxy/certs/mitmproxy-ca-cert.pem" ]
+}
+@test "secrets_rotate rejects unknown type" {
+    secrets_init "$TMP"
+    run secrets_rotate "$TMP" bogus
+    [ "$status" -ne 0 ]
+}
