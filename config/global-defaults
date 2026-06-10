@@ -4,7 +4,9 @@
 # Per-engagement /workspace/$TARGET/.env overrides these.
 
 # ── Default Exegol container ────────────────────────────
-export EXEGOL_CONTAINER="exegol"
+# Leave unset → dotsec auto-detects the running exegol container.
+# Uncomment to force a specific one:
+# export EXEGOL_CONTAINER="exegol-myname"
 
 # ── Default Bug Bounty User-Agent ───────────────────────
 export UA="H1-yourhandle"
