@@ -59,7 +59,7 @@ secrets_init() {
     fi
 
     __sec_chmod_strict "$secfile" "$keydir" "${keydir}/id_ed25519"
-    [[ -f "${keydir}/id_ed25519.pub" ]] && chmod 644 "${keydir}/id_ed25519.pub"
+    [[ -f "${keydir}/id_ed25519.pub" ]] && chmod 644 "${keydir}/id_ed25519.pub" || true
     return 0
 }
 
@@ -80,7 +80,7 @@ __sec_rot_ssh() {
     rm -f "$d/id_ed25519" "$d/id_ed25519.pub"
     ssh-keygen -t ed25519 -N "" -C "dotsec-$(basename "$1")" -f "$d/id_ed25519" >/dev/null 2>&1
     __sec_chmod_strict "$d" "$d/id_ed25519"
-    [[ -f "$d/id_ed25519.pub" ]] && chmod 644 "$d/id_ed25519.pub"
+    [[ -f "$d/id_ed25519.pub" ]] && chmod 644 "$d/id_ed25519.pub" || true
 }
 __sec_rot_ca() {
     rm -f "$1"/proxy/certs/mitmproxy-ca* 2>/dev/null || true

@@ -65,6 +65,11 @@ teardown() { rm -rf "$TMP"; }
     [ "$before" = "$after" ]
     [ "$before_key" = "$after_key" ]
 }
+@test "secrets_init survives set -e (no premature abort)" {
+    run bash -c "set -euo pipefail; source '${DOTSEC_HOME}/lib/ui.sh'; source '${DOTSEC_HOME}/lib/secrets.sh'; ws=\$(mktemp -d); secrets_init \"\$ws\"; echo REACHED_END; rm -rf \"\$ws\""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"REACHED_END"* ]]
+}
 
 @test "secrets_rotate token changes token values" {
     secrets_init "$TMP"
