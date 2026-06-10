@@ -16,7 +16,7 @@ if [[ -z "${WORKSPACE_ROOT:-}" ]]; then
 fi
 
 DOTSEC_LIB="${DOTSEC_HOME}/lib"
-for _m in ui core dashboard proxy exegol engagement; do
+for _m in ui core secrets dashboard proxy exegol engagement; do
     # shellcheck source=/dev/null
     source "${DOTSEC_LIB}/${_m}.sh"
 done

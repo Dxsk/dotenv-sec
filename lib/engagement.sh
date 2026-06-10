@@ -44,7 +44,7 @@ cmd_new() {
 
     # 1. Workspace structure
     printf '%b\n' "  ${DIM}[1/6]${RESET} ${DIM}Creating workspace...${RESET}"
-    mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor}}
+    mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
 
     # 2. Copy and fill .env
     printf '%b\n' "  ${DIM}[2/6]${RESET} ${DIM}Setting up dotenv...${RESET}"
@@ -59,6 +59,9 @@ cmd_new() {
     [[ -n "${EXEGOL_CONTAINER:-}" ]] && sed -i "s|exegol-default|${EXEGOL_CONTAINER}|g" "${ws}/.env"
     [[ -n "${PROXY_PORT:-}" ]] && sed -i "s|PROXY_PORT=\"9999\"|PROXY_PORT=\"${PROXY_PORT}\"|g" "${ws}/.env"
     [[ -n "${WEB_PORT:-}" ]] && sed -i "s|WEB_PORT=\"9998\"|WEB_PORT=\"${WEB_PORT}\"|g" "${ws}/.env"
+
+    # Generate per-engagement secrets (idempotent)
+    secrets_init "${ws}"
 
     # 3. ENGAGEMENT.md
     printf '%b\n' "  ${DIM}[3/6]${RESET} ${DIM}Writing ENGAGEMENT.md...${RESET}"
@@ -91,7 +94,7 @@ DOC
     # 6. Spawn tmux inside Exegol
     printf '%b\n' "  ${DIM}[6/6]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
     local container="${EXEGOL_CONTAINER:-exegol}"
-    local load_cmd="source /workspace/${target}/.env && export TARGET=${target} DOMAIN=${domain}; clear"
+    local load_cmd="source /workspace/${target}/.env; [ -f /workspace/${target}/.env.secrets ] && source /workspace/${target}/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     echo ""
@@ -103,6 +106,7 @@ DOC
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Exegol${RESET}      → ${BLUE}${container}${RESET} ${DIM}(tmux: ${target})${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Attach${RESET}      → ${YELLOW}dotsec tmux attach${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Browser${RESET}     → ${YELLOW}dotsec browser ${target}${RESET}"
+    printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Secrets${RESET}     → ${YELLOW}dotsec secrets ${target}${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}  ${BOLD}Dashboard${RESET}   → ${YELLOW}dotsec board reload${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}│${RESET}                                               ${BOLD}${GREEN}│${RESET}"
     printf '%b\n' "  ${BOLD}${GREEN}└───────────────────────────────────────────────┘${RESET}"
@@ -303,7 +307,7 @@ cmd_restart() {
 
     # Recreate tmux session
     printf '%b\n' "  ${DIM}Tmux session...${RESET}"
-    local load_cmd="source /workspace/${target}/.env && export TARGET=${target} DOMAIN=${domain}; clear"
+    local load_cmd="source /workspace/${target}/.env; [ -f /workspace/${target}/.env.secrets ] && source /workspace/${target}/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     printf '%b\n' "  ${GREEN}Environment restarted${RESET}"
