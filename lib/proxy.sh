@@ -31,15 +31,22 @@ proxy_up() {
         return 1
     fi
 
-    # Generate or reuse web password
-    local passfile="${ws}/proxy/certs/.web-pass"
-    local web_pass=""
-    if [[ -f "$passfile" ]]; then
-        web_pass=$(cat "$passfile" 2>/dev/null || echo "")
+    # Web password: source of truth is .env.secrets (MITMWEB_PASS).
+    local web_pass="${MITMWEB_PASS:-}"
+    local secfile="${ws}/.env.secrets"
+    if [[ -z "$web_pass" ]] && [[ -f "$secfile" ]]; then
+        web_pass=$(grep -oP '^(export\s+)?MITMWEB_PASS="?\K[^"]+' "$secfile" 2>/dev/null | head -1)
     fi
+    # Legacy fallback: pre-secrets engagements used certs/.web-pass
+    local passfile="${ws}/proxy/certs/.web-pass"
     if [[ -z "$web_pass" ]]; then
-        web_pass=$(set +o pipefail; tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
-        echo "$web_pass" > "$passfile"
+        if [[ -f "$passfile" ]]; then
+            web_pass=$(cat "$passfile" 2>/dev/null || echo "")
+        fi
+        if [[ -z "$web_pass" ]]; then
+            web_pass=$(set +o pipefail; tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+            echo "$web_pass" > "$passfile"
+        fi
     fi
 
     # Build image only if missing
