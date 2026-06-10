@@ -1,0 +1,15 @@
+# dotsec browser extensions — recon/bug-bounty, pinned & fetched by `dotsec ext sync`.
+# Format:  name | provider | source | ref | sha256 | subdir
+#   github   : source=owner/repo  ref=git tag  sha256=tarball  subdir=path of manifest.json ('.' = root)
+#   webstore : source=extension id ref=ext version (info/marker)  sha256=.crx  (subdir unused)
+# A sha256 mismatch on sync flags an upstream change → review and re-pin.
+
+js-recon-buddy | github   | TheArqsz/JSRecon-Buddy            | v1.20.2 | 7efd1caad51e7c53b2e051c56056a153c22ca32d006fdebc6fef0e27f925b826 | .
+keyfinder      | github   | momenbasel/KeyFinder             | v2.1.1  | 6b97ec115aea681d56f882d60637dfad2222379d82123d61d93b1b279f61ef81 | .
+dotgit         | github   | davtur19/DotGit                  | 5.2     | f9254d5ff7b63697ca6856bcd905d92488b53a158a7e8043a30186425341851d | .
+jwt-inspector  | github   | bugjam/jwt-inspector             | v1.8    | 3cf2ed77de8263b23dd44da9386a145526a004175134795026334ac46b160c98 | .
+findsomething  | webstore | kfhniponecokdefffkpagipffdefeldb | 2.1.12  | 87a787ce272452b4139f9c5b8a823181fd38c1d59735137e9ca4de0d4744cd15 |
+wappalyzer     | webstore | gppongmhjkpfnbhagpmjfkannfbllamg | 6.12.2  | 5bf332e9ac547e7b62fc35493cfa9aa51a924dc73644f5dbfa63878057c7653d |
+hacktools      | webstore | cmbndhnoonmghfofefkcccljbkdpamhi | 0.5.0   | 60accc0ac753eb12183e1db34dddeaa66d2874f8a5ffa918f49b7fc06586560a |
+cookie-editor  | webstore | hlkenndednhfkekhgcdicdfddnkalmdm | 1.13.0  | 754a072a5b6327d27a0d4d6e299a8e28b2a5fafbd595ccb6bfcd4090ae8eb038 |
+darkreader     | webstore | eimadpbcbfnmbkopoojfekhnkhdbieeh | 4.9.125 | 8c086983256e70789fe9f2765542683ad3c0707521ec174010cafd2697687016 |

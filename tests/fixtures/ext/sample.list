@@ -1,0 +1,3 @@
+# name | provider | source | ref | sha256 | subdir
+alpha | github | owner/alpha | v1.0 | deadbeef | .
+beta  | webstore | abcdefghijklmnop | 2.1 | cafebabe |

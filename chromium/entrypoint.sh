@@ -50,14 +50,35 @@ if [ -n "$HTTP_PROXY" ] && [ -z "$CA_FILE" ]; then
     echo "[!] No CA cert mounted: ignoring cert errors"
 fi
 
-# Preload extensions if provided
+# Preload extensions if provided. Chromium keeps only ONE --load-extension, so
+# every unpacked dir must be passed as a single comma-separated value.
 if [ -d /extensions ] && [ "$(ls -A /extensions 2>/dev/null)" ]; then
-    EXT_FLAGS=""
+    EXT_LIST=""
     for ext in /extensions/*/; do
-        EXT_FLAGS="$EXT_FLAGS --load-extension=$ext"
+        [ -f "${ext}manifest.json" ] || continue
+        EXT_LIST="${EXT_LIST:+${EXT_LIST},}${ext%/}"
     done
-    CHROMIUM_FLAGS="$CHROMIUM_FLAGS $EXT_FLAGS"
-    echo "[+] Extensions loaded"
+    if [ -n "$EXT_LIST" ]; then
+        CHROMIUM_FLAGS="$CHROMIUM_FLAGS --load-extension=$EXT_LIST"
+        # Pin each extension to the toolbar. The toolbar_pin POLICY does not
+        # apply to unpacked extensions, so pre-seed the profile instead. An
+        # unpacked ID = first 16 bytes of SHA-256(abs path), 0-9a-f -> a-p.
+        PROFILE="${HOME:-/root}/.config/chromium/Default"
+        PINS=""; SETTINGS=""
+        for ext in /extensions/*/; do
+            [ -f "${ext}manifest.json" ] || continue
+            eid=$(printf '%s' "${ext%/}" | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')
+            PINS="${PINS:+$PINS,}\"$eid\""
+            # withholding_permissions=false → grant declared host access on all sites
+            SETTINGS="${SETTINGS:+$SETTINGS,}\"$eid\":{\"withholding_permissions\":false}"
+        done
+        if [ -n "$PINS" ] && [ ! -f "$PROFILE/Preferences" ]; then
+            mkdir -p "$PROFILE"
+            printf '{"extensions":{"pinned_extensions":[%s],"toolbar":[%s],"settings":{%s}}}\n' \
+                "$PINS" "$PINS" "$SETTINGS" > "$PROFILE/Preferences"
+        fi
+        echo "[+] Extensions loaded + pinned: $EXT_LIST"
+    fi
 fi
 
 echo "[*] Launching Chromium..."
