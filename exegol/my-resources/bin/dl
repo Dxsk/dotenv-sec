@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Source an engagement's env into the CURRENT shell (must be `source`d, not run).
+# Usage: source dl <target>     (or via the `dl` alias)
+_dl_target="${1:-}"
+if [[ -z "$_dl_target" ]]; then
+    printf '[!] usage: source dl <target>\n' >&2
+    # shellcheck disable=SC2317
+    return 1 2>/dev/null || exit 1
+fi
+_dl_env="${WORKSPACE_ROOT:-/workspace}/${_dl_target}/.env"
+if [[ ! -f "$_dl_env" ]]; then
+    printf '[!] no .env for %s at %s\n' "$_dl_target" "$_dl_env" >&2
+    # shellcheck disable=SC2317
+    return 1 2>/dev/null || exit 1
+fi
+if grep -qE '^[[:space:]]*(export[[:space:]]+)?[a-zA-Z_][a-zA-Z0-9_]*=.*(\$\(|`)' "$_dl_env"; then
+    printf '[!] %s contains command substitution — refusing\n' "$_dl_env" >&2
+    # shellcheck disable=SC2317
+    return 1 2>/dev/null || exit 1
+fi
+# shellcheck source=/dev/null
+source "$_dl_env"
+[[ -f "${_dl_env}.secrets" ]] && source "${_dl_env}.secrets"
+printf '  loaded %s (%s)\n' "${TARGET:-$_dl_target}" "${DOMAIN:-?}"
