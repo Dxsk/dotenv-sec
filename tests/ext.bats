@@ -114,3 +114,11 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *up-to-date* ]]
 }
+
+@test "managed-bookmarks.json is valid JSON with CyberChef" {
+    command -v python3 >/dev/null || skip "python3 not installed"
+    run python3 -m json.tool "$DOTSEC_HOME/chromium/managed-bookmarks.json"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *ManagedBookmarks* ]]
+    [[ "$output" == *CyberChef* ]]
+}
