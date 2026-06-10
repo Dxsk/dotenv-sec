@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+mkdir -p "$OUT"
+
+[[ -s "$OUT/subdomains.txt" ]] || { echo "[!] run recon-subs first"; exit 1; }
+echo "[*] httpx alive check"
+httpx-toolkit -l "$OUT/subdomains.txt" -mc 200 -ports 443,80,8080,8000,8888 -threads 200 2>/dev/null \
+    | sort -u > "$OUT/subdomains_alive.txt"
+echo "[+] $(wc -l < "$OUT/subdomains_alive.txt") alive → $OUT/subdomains_alive.txt"

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+mkdir -p "$OUT"
+
+echo "[*] full recon pipeline for $DOMAIN"
+recon-subs
+recon-alive
+recon-crawl
+recon-sourcemaps || echo "[i] sourcemaps step skipped"
+echo "[+] done → $OUT"
