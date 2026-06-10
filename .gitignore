@@ -15,3 +15,7 @@ proxy-*/
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime secrets / proxy state (must never be committed)
+mitmproxy/certs/
+mitmproxy/flows/

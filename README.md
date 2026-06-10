@@ -50,6 +50,8 @@ dotsec spawn
 | `dotsec exegol setup` | Install uv + pnpm inside Exegol container |
 | `dotsec tmux attach\|create\|kill\|ls` | tmux session management |
 | `dotsec log <cmd...>` | Run command and log to `commands.log` |
+| `dotsec secrets <target>` | Show masked secret status for an engagement |
+| `dotsec rotate <target> [type]` | Regenerate engagement secrets (all\|token\|mitmweb\|ssh\|ca) |
 | `dotsec info` | Show current engagement + global config status |
 
 ## Configuration
@@ -73,6 +75,21 @@ export DOMAIN="acme-corp.com"
 export UA="H1-myhandle"
 export HTTP_PROXY="http://127.0.0.1:9999"
 export EXEGOL_CONTAINER="exegol"
+```
+
+## Secrets
+
+Each `dotsec new` generates per-engagement secrets — idempotent, never committed — into the workspace:
+
+- `.env.secrets` (chmod 600): `DOTSEC_SESSION_SECRET`, `DOTSEC_API_TOKEN`, `MITMWEB_PASS`
+- `keys/id_ed25519` — ephemeral Ed25519 SSH key (600), `keys/id_ed25519.pub` (644)
+- CA certificate — generated on first `proxy up` into `proxy/certs/`
+
+```bash
+dotsec secrets acme-corp          # show masked status (never prints values)
+dotsec rotate acme-corp           # regenerate all secrets (prompts for ssh/ca/all)
+dotsec rotate acme-corp token     # rotate tokens only (no prompt)
+dotsec rotate acme-corp mitmweb   # rotate proxy password only (no prompt)
 ```
 
 ## MITM Proxy
@@ -139,6 +156,9 @@ This installs:
 | `make install` | Full setup: symlinks + config + shell integration + build images |
 | `make build` | Build all Docker images |
 | `make scan` | Run Trivy vulnerability scanner on all images |
+| `make test` | Run bats tests |
+| `make lint` | Run shellcheck on all bash |
+| `make smoke` | Docker integration smoke (requires `make build`) |
 | `make update` | Git pull + rebuild images |
 | `make clean` | Stop and remove all mitmproxy containers |
 | `make uninstall` | Remove symlinks and config |

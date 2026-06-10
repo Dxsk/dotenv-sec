@@ -4,7 +4,7 @@
 # Usage: source <(dotsec completions zsh)
 
 _dotsec_completions() {
-    local commands="new load unload list spawn board dashboard proxy browser exegol tmux log info help"
+    local commands="new load unload list spawn board dashboard proxy browser exegol tmux log secrets rotate archive stop restart completions info help"
     local proxy_sub="up down status logs"
     local board_sub="up start down stop reload status"
     local exegol_sub="exec shell setup"
@@ -19,7 +19,8 @@ _dotsec_completions() {
             dashboard) compadd -- $board_sub;;
             exegol)   compadd -- $exegol_sub;;
             tmux)     compadd -- $tmux_sub;;
-            spawn|load|browser|new)
+            rotate) compadd -- all token mitmweb ssh ca;;
+            spawn|load|browser|new|secrets|rotate|archive|stop|restart)
                 local targets=()
                 for d in ${WORKSPACE_ROOT:-/workspace}/*/.env(N); do
                     targets+=($(basename $(dirname $d)))
