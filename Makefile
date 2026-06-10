@@ -3,7 +3,7 @@ DOTSEC_HOME  := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 BIN_DIR      := $(HOME)/.local/bin
 CONFIG_DIR   := $(HOME)/.config/dotenvsec
 
-.PHONY: install setup update build clean uninstall help
+.PHONY: install setup update build clean uninstall help test lint
 
 ##@ Main targets
 install: setup  ## Full install (symlinks + config + shell + exegol + images)
@@ -125,3 +125,10 @@ help:  ## Show this help
 	@echo ""
 	@awk 'BEGIN {FS = ":.*##"; printf "\033[1m%-20s %s\033[0m\n", "Target", "Description"} \
 	/^[a-zA-Z_-]+:.*?##/ { printf "\033[32m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+##@ Quality
+test:  ## Run bats tests
+	@bats tests/
+
+lint:  ## shellcheck all bash (uses .shellcheckrc)
+	@shellcheck -x bin/dotsec bin/dotsec-build lib/*.sh && echo "[+] shellcheck clean"
