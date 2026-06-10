@@ -98,7 +98,7 @@ dotsec rotate acme-corp mitmweb   # rotate proxy password only (no prompt)
 dotsec proxy up          # start mitmproxy container
 # → Proxy  : http://127.0.0.1:9999
 # → Web UI : http://127.0.0.1:9998
-# → CA PEM : /workspace/$TARGET/proxy/certs/mitmproxy-ca.pem
+# → CA PEM : /workspace/$TARGET/proxy/certs/mitmproxy-ca-cert.pem
 
 dotsec proxy status      # check container
 dotsec proxy logs        # tail container logs
