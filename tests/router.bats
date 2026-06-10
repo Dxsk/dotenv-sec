@@ -28,6 +28,12 @@ _mk_engagement() {
     [[ "$output" == *"dotsec load needs the shell function"* ]]
 }
 
+@test "env on a missing engagement errors out" {
+    run "$DOTSEC_BIN" env ghost
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"No .env"* ]]
+}
+
 @test "unload reports vars unset" {
     run "$DOTSEC_BIN" unload
     [ "$status" -eq 0 ]
