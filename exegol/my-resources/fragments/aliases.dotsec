@@ -1,2 +1,5 @@
-# dotsec recon aliases
+# dotsec recon aliases (env-driven: needs $DOMAIN / an engagement loaded)
+alias dl='source /opt/my-resources/bin/dl'
 alias subs='subfinder -d "$DOMAIN" -all -recursive'
+alias alive='httpx-toolkit -mc 200 -ports 443,80,8080,8000,8888 -threads 200'
+alias crawl='katana -d 5 -jc -kf -ps -pss waybackarchive,commoncrawl,alienvault'

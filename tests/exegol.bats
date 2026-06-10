@@ -43,6 +43,12 @@ run_deploy() { bash "${DOTSEC_HOME}/exegol/my-resources/deploy.sh"; }
     [[ "$output" != *"done"* ]] || [[ "$output" == *"refus"* ]]
 }
 
+@test "deploy merges history and load_user_setup blocks" {
+    run_deploy
+    grep -qF "# >>> dotsec >>>" "$DEST/setup/zsh/history"
+    grep -qF "# >>> dotsec >>>" "$DEST/setup/load_user_setup.sh"
+}
+
 @test "recon scripts fail fast when DOMAIN is unset" {
     for s in recon-subs recon-alive recon-crawl recon-sourcemaps recon-full; do
         run env -u DOMAIN bash "${DOTSEC_HOME}/exegol/my-resources/bin/$s"
