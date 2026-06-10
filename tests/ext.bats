@@ -18,6 +18,24 @@ EOF
     chmod +x "$d/bin/curl"
 }
 
+# Build a fake .crx (12-byte Cr24 header + a real zip) plus a curl stub.
+_mk_crx_fixture() {
+    local d="$1"
+    mkdir -p "$d/src"
+    echo '{"name":"beta","manifest_version":3,"version":"2.1"}' > "$d/src/manifest.json"
+    ( cd "$d/src" && zip -q "$d/e.zip" manifest.json )
+    printf 'Cr24\x03\x00\x00\x00\x00\x00\x00\x00' > "$d/e.crx"
+    cat "$d/e.zip" >> "$d/e.crx"
+    mkdir -p "$d/bin"
+    cat > "$d/bin/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+while [ \$# -gt 0 ]; do case "\$1" in -o) out="\$2"; shift 2;; *) shift;; esac; done
+cp "$d/e.crx" "\$out"
+EOF
+    chmod +x "$d/bin/curl"
+}
+
 @test "ext list prints extension names from manifest" {
     run env DOTSEC_EXT_MANIFEST="$DOTSEC_HOME/tests/fixtures/ext/sample.list" \
         "$DOTSEC_BIN" ext list
@@ -49,4 +67,26 @@ EOF
         "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/ext.sh'; __ext_fetch_github alpha owner/alpha v1.0 'deadbeefwrong' ."
     [ "$status" -ne 0 ]
     [ ! -f "$d/ext/alpha/manifest.json" ]
+}
+
+@test "webstore provider extracts crx and verifies sha256" {
+    command -v zip unzip >/dev/null || skip "zip/unzip not installed"
+    local d; d="$(mktemp -d)"
+    _mk_crx_fixture "$d"
+    local want; want="$(sha256sum "$d/e.crx" | cut -d' ' -f1)"
+    run env PATH="$d/bin:$PATH" DOTSEC_EXT_DIR="$d/ext" bash -c \
+        "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/ext.sh'; __ext_fetch_webstore beta abcdefghijklmnop 2.1 '$want'"
+    [ "$status" -eq 0 ]
+    [ -f "$d/ext/beta/manifest.json" ]
+    [ -f "$d/ext/beta/.dotsec-version" ]
+}
+
+@test "webstore provider rejects sha256 mismatch" {
+    command -v zip unzip >/dev/null || skip "zip/unzip not installed"
+    local d; d="$(mktemp -d)"
+    _mk_crx_fixture "$d"
+    run env PATH="$d/bin:$PATH" DOTSEC_EXT_DIR="$d/ext" bash -c \
+        "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/ext.sh'; __ext_fetch_webstore beta abcdefghijklmnop 2.1 'wrongsha'"
+    [ "$status" -ne 0 ]
+    [ ! -f "$d/ext/beta/manifest.json" ]
 }

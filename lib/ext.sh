@@ -87,6 +87,47 @@ __ext_fetch_github() {
     printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(${tag})${RESET}"
 }
 
+# __ext_fetch_webstore <name> <id> <version> <sha256>
+# Downloads the pinned .crx, verifies sha256, carves out the zip payload
+# (CRX2/CRX3 header skipped by locating the first PK\x03\x04), unzips into
+# $DOTSEC_EXT_DIR/<name>/.
+__ext_fetch_webstore() {
+    local name="$1" id="$2" ver="$3" want="$4"
+    local dir; dir="$(__ext_dir)"
+    local url="https://clients2.google.com/service/update2/crx?response=redirect&acceptformat=crx2,crx3&prodversion=${ver}&x=id%3D${id}%26installsource%3Dondemand%26uc"
+    local tmp; tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' RETURN
+    if ! curl -fsSL "$url" -o "$tmp/e.crx"; then
+        printf '%b\n' "  ${RED}[!] crx download failed: ${name}${RESET}" >&2
+        return 1
+    fi
+    local got; got="$(sha256sum "$tmp/e.crx" | cut -d' ' -f1)"
+    if [[ -n "$want" && "$got" != "$want" ]]; then
+        printf '%b\n' "  ${RED}[!] sha256 mismatch for ${name}${RESET}" >&2
+        printf '%b\n' "      want ${want}" >&2
+        printf '%b\n' "      got  ${got}" >&2
+        return 1
+    fi
+    # Skip the Cr24 header: the zip payload starts at the first PK\x03\x04.
+    local off; off="$(grep -aboFm1 $'PK\x03\x04' "$tmp/e.crx" | cut -d: -f1 || true)"
+    if [[ -z "$off" ]]; then
+        printf '%b\n' "  ${RED}[!] no zip payload in crx ${name}${RESET}" >&2
+        return 1
+    fi
+    tail -c "+$((off + 1))" "$tmp/e.crx" > "$tmp/e.zip"
+    mkdir -p "$tmp/x"
+    unzip -qo "$tmp/e.zip" -d "$tmp/x"
+    if [[ ! -f "$tmp/x/manifest.json" ]]; then
+        printf '%b\n' "  ${RED}[!] no manifest.json in crx ${name}${RESET}" >&2
+        return 1
+    fi
+    rm -rf "${dir:?}/$name"
+    mkdir -p "$dir/$name"
+    cp -a "$tmp/x/." "$dir/$name/"
+    echo "$ver" > "$dir/$name/.dotsec-version"
+    printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(crx ${ver})${RESET}"
+}
+
 ext_sync() {
     # Orchestration implemented in a later task.
     printf '%b\n' "${YELLOW}[*]${RESET} ${DIM}ext sync not yet implemented${RESET}" >&2
