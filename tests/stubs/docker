@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Test stub: records args, fakes the queries proxy_up/cmd_dashboard need.
+echo "docker $*" >> "${DOCKER_STUB_LOG:-/dev/null}"
+case "$1" in
+    image)
+        case "$2" in
+            inspect) exit 0 ;;  # image exists → no --build
+        esac ;;
+    network)
+        case "$2" in
+            inspect) exit 0 ;;   # network exists
+            create)  exit 0 ;;
+        esac ;;
+    ps)      echo "" ; exit 0 ;;  # no containers running (port free, homer not up)
+    restart) exit 0 ;;
+    compose) exit 0 ;;
+esac
+exit 0

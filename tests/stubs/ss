@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Test stub: port looks free (no output, exit 0).
+exit 0
