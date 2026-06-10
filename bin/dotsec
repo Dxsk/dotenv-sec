@@ -4,6 +4,7 @@ set -euo pipefail
 
 DOTSEC_HOME="${DOTSEC_HOME:-$HOME/Documents/github.com/Dxsk/dotenv-sec}"
 DOTSEC_CONFIG="${DOTSEC_CONFIG:-$HOME/.config/dotenvsec}"
+# shellcheck disable=SC2034  # consumed by usage()/cmd_info in sourced libs
 VERSION="0.2.0"
 
 # Workspace root: /workspace (Exegol) or fallback to ~/workspace

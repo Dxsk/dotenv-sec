@@ -205,7 +205,8 @@ cmd_archive() {
     fi
 
     local container="${EXEGOL_CONTAINER:-exegol}"
-    local timestamp=$(date '+%Y%m%d-%H%M%S')
+    local timestamp
+    timestamp=$(date '+%Y%m%d-%H%M%S')
     local archive_name="${target}-${timestamp}.tar.gz"
     local archive_path="${output_dir}/${archive_name}"
 

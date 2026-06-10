@@ -1,0 +1,4 @@
+# dotenv-sec shellcheck config
+# SC1090/SC1091: libs source runtime files (engagement .env, global config)
+# whose paths are dynamic / not present at lint time. These are by design.
+disable=SC1090,SC1091

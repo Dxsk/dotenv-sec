@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # ─── lib/ui.sh ─── colors and usage ──
+# Colors are consumed across the other sourced libs, so shellcheck (which lints
+# each file in isolation) flags them as unused. They are not.
+# shellcheck disable=SC2034
 
 # ── Colors ──────────────────────────────────────────────
 BOLD=$'\033[1m'; DIM=$'\033[2m'
