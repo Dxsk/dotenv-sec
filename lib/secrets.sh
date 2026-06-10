@@ -38,3 +38,27 @@ __sec_chmod_strict() {
         if [[ -d "$path" ]]; then chmod 700 "$path"; else chmod 600 "$path"; fi
     done
 }
+
+# Generate every MISSING secret for a workspace. Idempotent.
+secrets_init() {
+    local ws="$1"
+    local secfile="${ws}/.env.secrets"
+    local keydir="${ws}/keys"
+    mkdir -p "$ws" "$keydir" "${ws}/proxy/certs"
+
+    grep -qE '^(export[[:space:]]+)?DOTSEC_SESSION_SECRET=' "$secfile" 2>/dev/null \
+        || __sec_env_set "$secfile" DOTSEC_SESSION_SECRET "$(__sec_rand 32)"
+    grep -qE '^(export[[:space:]]+)?DOTSEC_API_TOKEN=' "$secfile" 2>/dev/null \
+        || __sec_env_set "$secfile" DOTSEC_API_TOKEN "$(__sec_rand 32)"
+    grep -qE '^(export[[:space:]]+)?MITMWEB_PASS=' "$secfile" 2>/dev/null \
+        || __sec_env_set "$secfile" MITMWEB_PASS "$(__sec_rand 16)"
+
+    if [[ ! -f "${keydir}/id_ed25519" ]]; then
+        ssh-keygen -t ed25519 -N "" -C "dotsec-$(basename "$ws")" \
+            -f "${keydir}/id_ed25519" >/dev/null 2>&1
+    fi
+
+    __sec_chmod_strict "$secfile" "$keydir" "${keydir}/id_ed25519"
+    [[ -f "${keydir}/id_ed25519.pub" ]] && chmod 644 "${keydir}/id_ed25519.pub"
+    return 0
+}

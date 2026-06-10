@@ -40,3 +40,28 @@ teardown() { rm -rf "$TMP"; }
     [ "$(stat -c '%a' "${TMP}/f")" = "600" ]
     [ "$(stat -c '%a' "${TMP}/d")" = "700" ]
 }
+
+@test "secrets_init creates .env.secrets (600) with the three keys" {
+    secrets_init "$TMP"
+    [ "$(stat -c '%a' "${TMP}/.env.secrets")" = "600" ]
+    grep -q '^export DOTSEC_SESSION_SECRET="' "${TMP}/.env.secrets"
+    grep -q '^export DOTSEC_API_TOKEN="'      "${TMP}/.env.secrets"
+    grep -q '^export MITMWEB_PASS="'          "${TMP}/.env.secrets"
+}
+@test "secrets_init creates ssh key 600 and pub 644" {
+    secrets_init "$TMP"
+    [ -f "${TMP}/keys/id_ed25519" ]
+    [ "$(stat -c '%a' "${TMP}/keys/id_ed25519")" = "600" ]
+    [ "$(stat -c '%a' "${TMP}/keys/id_ed25519.pub")" = "644" ]
+    [ "$(stat -c '%a' "${TMP}/keys")" = "700" ]
+}
+@test "secrets_init is idempotent (values unchanged on 2nd call)" {
+    secrets_init "$TMP"
+    before="$(grep '^export DOTSEC_SESSION_SECRET=' "${TMP}/.env.secrets")"
+    before_key="$(cat "${TMP}/keys/id_ed25519")"
+    secrets_init "$TMP"
+    after="$(grep '^export DOTSEC_SESSION_SECRET=' "${TMP}/.env.secrets")"
+    after_key="$(cat "${TMP}/keys/id_ed25519")"
+    [ "$before" = "$after" ]
+    [ "$before_key" = "$after_key" ]
+}
