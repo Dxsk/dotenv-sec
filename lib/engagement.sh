@@ -177,6 +177,7 @@ cmd_list() {
         found=1
     done
     [[ $found -eq 0 ]] && printf '%b\n' "  ${DIM}No engagements yet.${RESET} ${YELLOW}dotsec new <target>${RESET}"
+    return 0  # don't leak the falsy [[ ]] status under set -e
 }
 
 # ── Log ───────────────────────────────────────────────────

@@ -33,3 +33,24 @@ load test_helper
     [ "$status" -eq 0 ]
     [[ "$output" == *REACHED* ]]
 }
+
+@test "dotsec list exits 0 when engagements exist" {
+    local ws cfg
+    ws="$(mktemp -d)"; cfg="$(mktemp -d)"
+    mkdir -p "$ws/acme"
+    printf 'export DOMAIN="acme.com"\n' > "$ws/acme/.env"
+    run env WORKSPACE_ROOT="$ws" DOTSEC_CONFIG="$cfg" "$DOTSEC_BIN" list
+    rm -rf "$ws" "$cfg"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *acme* ]]
+}
+
+@test "dotsec rotate ssh aborts cleanly on closed stdin (EOF)" {
+    local ws cfg
+    ws="$(mktemp -d)"; cfg="$(mktemp -d)"
+    bash -c "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/core.sh'; source '$DOTSEC_HOME/lib/secrets.sh'; secrets_init '$ws/acme'" >/dev/null 2>&1
+    run env WORKSPACE_ROOT="$ws" DOTSEC_CONFIG="$cfg" "$DOTSEC_BIN" rotate acme ssh </dev/null
+    rm -rf "$ws" "$cfg"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *Aborted* ]]
+}

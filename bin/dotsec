@@ -68,7 +68,7 @@ case "${1:-help}" in
         [[ -z "$_t" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec rotate <target> [all|token|mitmweb|ssh|ca]${RESET}" >&2; exit 1; }
         if [[ "$_type" == "ssh" || "$_type" == "ca" || "$_type" == "all" ]]; then
             printf '%b' "${YELLOW}[?]${RESET} Rotate '${_type}' for ${_t}? This invalidates deployed keys / CA trust. [y/N] " >&2
-            read -r _ans
+            read -r _ans || _ans=""   # EOF/closed stdin → treat as abort, not set -e crash
             [[ "$_ans" =~ ^[Yy]$ ]] || { printf '%b\n' "${DIM}Aborted${RESET}" >&2; exit 0; }
         fi
         secrets_rotate "${WORKSPACE_ROOT}/${_t}" "$_type"
