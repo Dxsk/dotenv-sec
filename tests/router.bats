@@ -25,7 +25,7 @@ _mk_engagement() {
 @test "load on a missing engagement errors out" {
     run "$DOTSEC_BIN" load ghost
     [ "$status" -ne 0 ]
-    [[ "$output" == *"No .env found"* ]]
+    [[ "$output" == *"dotsec load needs the shell function"* ]]
 }
 
 @test "unload reports vars unset" {
@@ -90,6 +90,24 @@ _mk_engagement() {
     run "$DOTSEC_BIN" env
     [ "$status" -ne 0 ]
     [[ "$output" == *"Usage: dotsec env"* ]]
+}
+
+@test "zsh dotsec() function exports vars into the shell" {
+    command -v zsh >/dev/null || skip "zsh not installed"
+    ws="$(mktemp -d)"; cfg="$(mktemp -d)"
+    mkdir -p "$ws/acme"
+    printf 'export TARGET="acme"\nexport DOMAIN="acme.com"\n' > "$ws/acme/.env"
+    run env PATH="${DOTSEC_HOME}/bin:$PATH" WORKSPACE_ROOT="$ws" DOTSEC_CONFIG="$cfg" \
+        DOTSEC_HOME="$DOTSEC_HOME" zsh -c \
+        "source '${DOTSEC_HOME}/config/shellrc.zsh'; dotsec load acme; print \"GOT=\$TARGET\""
+    rm -rf "$ws" "$cfg"
+    [[ "$output" == *"GOT=acme"* ]]
+}
+@test "zsh dotsec() delegates other commands to the binary" {
+    command -v zsh >/dev/null || skip "zsh not installed"
+    run env PATH="${DOTSEC_HOME}/bin:$PATH" DOTSEC_HOME="$DOTSEC_HOME" zsh -c \
+        "source '${DOTSEC_HOME}/config/shellrc.zsh'; dotsec help"
+    [[ "$output" == *"Pentest environment launcher"* ]]
 }
 
 @test "proxy with a bad subcommand shows usage" {
