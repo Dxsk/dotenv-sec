@@ -1,0 +1,17 @@
+services:
+  oob:
+    build: .
+    image: dotenv-sec/oob:latest
+    container_name: oob-${TARGET:-default}
+    ports:
+      - "127.0.0.1:${OOB_PORT:-9996}:8080"
+    volumes:
+      - "${OOB_DIR:-./oob}:/data"
+    restart: unless-stopped
+    networks:
+      - proxy-net
+
+networks:
+  proxy-net:
+    name: dotsec-proxy-net
+    external: true

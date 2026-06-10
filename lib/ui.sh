@@ -27,6 +27,7 @@ ${BOLD}${CYAN}ENGAGEMENT${RESET}
 ${BOLD}${YELLOW}PROXY & BROWSER${RESET}
   ${GREEN}proxy${RESET}    ${DIM}up|down|status|logs${RESET}  Manage mitmproxy container
   ${GREEN}browser${RESET}  ${DIM}[target]${RESET}             Launch Chromium routed through proxy
+  ${GREEN}listener${RESET} ${DIM}up|down|logs|status${RESET}  OOB HTTP callback + ssh tunnel
 
 ${BOLD}${MAGENTA}DASHBOARD${RESET}
   ${GREEN}board${RESET}    ${DIM}up|down|reload|status${RESET}  Homer dashboard ${DIM}(127.0.0.1:9997)${RESET}

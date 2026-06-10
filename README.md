@@ -151,6 +151,21 @@ To trigger it manually:
 dotsec exegol setup
 ```
 
+## OOB Listener
+
+Out-of-band HTTP callback server (SSRF/XXE/SSTI blind) in a container, exposed
+publicly through an auth-less `ssh -R` tunnel (localhost.run). HTTP only.
+
+```bash
+dotsec listener up              # container + public URL (in workspace/oob/url.txt)
+dotsec listener up --no-tunnel  # local only (127.0.0.1:9996), expose it yourself
+dotsec listener logs            # tail captured hits (workspace/oob/hits.log)
+dotsec listener status          # container + public URL
+dotsec listener down            # stop container + kill tunnel
+```
+
+Every hit is logged with timestamp, source IP, method, path, headers and body.
+
 ## Docker Security
 
 - Base images pinned by `@sha256` digest

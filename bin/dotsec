@@ -21,7 +21,7 @@ if [[ -z "${WORKSPACE_ROOT:-}" ]]; then
 fi
 
 DOTSEC_LIB="${DOTSEC_HOME}/lib"
-for _m in ui core secrets dashboard proxy exegol engagement status; do
+for _m in ui core secrets dashboard proxy exegol engagement status listener; do
     # shellcheck source=/dev/null
     source "${DOTSEC_LIB}/${_m}.sh"
 done
@@ -80,6 +80,7 @@ case "${1:-help}" in
         ;;
     env)          shift; cmd_env "$@";;
     status)       shift; cmd_status "$@";;
+    listener)     shift; cmd_listener "$@";;
     info)         cmd_info;;
     completions)  shift; exec "${DOTSEC_HOME}/bin/dotsec-completions" "$@";;
     help|--help|-h) usage;;
