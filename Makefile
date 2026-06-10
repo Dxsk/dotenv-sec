@@ -3,7 +3,7 @@ DOTSEC_HOME  := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 BIN_DIR      := $(HOME)/.local/bin
 CONFIG_DIR   := $(HOME)/.config/dotenvsec
 
-.PHONY: install setup update build clean uninstall help test lint
+.PHONY: install setup update build clean uninstall help test lint smoke
 
 ##@ Main targets
 install: setup  ## Full install (symlinks + config + shell + exegol + images)
@@ -131,4 +131,7 @@ test:  ## Run bats tests
 	@bats tests/
 
 lint:  ## shellcheck all bash (uses .shellcheckrc)
-	@shellcheck -x bin/dotsec bin/dotsec-build lib/*.sh && echo "[+] shellcheck clean"
+	@shellcheck -x bin/dotsec bin/dotsec-build lib/*.sh tests/integration-smoke.sh && echo "[+] shellcheck clean"
+
+smoke:  ## Docker integration smoke (requires docker + make build)
+	@bash tests/integration-smoke.sh

@@ -156,6 +156,9 @@ This installs:
 | `make install` | Full setup: symlinks + config + shell integration + build images |
 | `make build` | Build all Docker images |
 | `make scan` | Run Trivy vulnerability scanner on all images |
+| `make test` | Run bats tests |
+| `make lint` | Run shellcheck on all bash |
+| `make smoke` | Docker integration smoke (requires `make build`) |
 | `make update` | Git pull + rebuild images |
 | `make clean` | Stop and remove all mitmproxy containers |
 | `make uninstall` | Remove symlinks and config |
