@@ -14,3 +14,24 @@ load test_helper
     [[ "$output" == *"POST /cb?x=1"* ]]
     [[ "$output" == *"pwned123"* ]]
 }
+
+@test "listener up runs compose (dotsec-oob) and starts the ssh tunnel" {
+    WS="$(mktemp -d)"; logf="$(mktemp)"
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" SSH_STUB_LOG="$logf" \
+        DOCKER_STUB_LOG="$logf" WORKSPACE="$WS" TARGET=acme OOB_PORT=19996 OOB_TUNNEL_WAIT=1 \
+        "$DOTSEC_BIN" listener up
+    grep -q 'compose' "$logf"
+    grep -q 'dotsec-oob' "$logf"
+    grep -q -- '-R 80:localhost:19996' "$logf"
+    rm -rf "$WS" "$logf"
+}
+
+@test "listener up --no-tunnel skips ssh" {
+    WS="$(mktemp -d)"; logf="$(mktemp)"
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" SSH_STUB_LOG="$logf" \
+        DOCKER_STUB_LOG="$logf" WORKSPACE="$WS" TARGET=acme OOB_PORT=19996 OOB_TUNNEL_WAIT=1 \
+        "$DOTSEC_BIN" listener up --no-tunnel
+    grep -q 'compose' "$logf"
+    ! grep -q 'ssh ' "$logf"
+    rm -rf "$WS" "$logf"
+}

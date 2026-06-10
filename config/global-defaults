@@ -13,6 +13,7 @@ export UA="H1-yourhandle"
 export PROXY_PORT="9999"
 export WEB_PORT="9998"
 export HOMER_PORT="9997"
+export OOB_PORT="9996"
 
 # ── Default workspace root ──────────────────────────────
 export WORKSPACE_ROOT="/workspace"

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "ssh $*" >> "${SSH_STUB_LOG:-/dev/null}"
+exit 0
