@@ -41,6 +41,7 @@ ${BOLD}${BLUE}WORKSPACE${RESET}
   ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux sessions inside Exegol
   ${GREEN}log${RESET}      ${DIM}<cmd...>${RESET}             Run + log to commands.log
   ${GREEN}archive${RESET}  ${DIM}[target]${RESET}           Archive workspace to tar.gz
+  ${GREEN}rm${RESET}       ${DIM}<target> [--archive]${RESET} Remove engagement (containers + workspace)
   ${GREEN}stop${RESET}     ${DIM}<target>${RESET}             Stop proxy + tmux for engagement
   ${GREEN}restart${RESET}  ${DIM}<target>${RESET}             Restart proxy + exegol + tmux
 

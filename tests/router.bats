@@ -143,3 +143,35 @@ _mk_engagement() {
         [ "$output" = "0" ] || { echo "cmd '$cmd' exited $output"; false; }
     done
 }
+
+@test "rm aborts on negative confirmation (workspace kept)" {
+    _mk_engagement victim
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" WORKSPACE_ROOT="$WS" DOTSEC_CONFIG="$CFG" \
+        bash -c "printf 'n\n' | '$DOTSEC_BIN' rm victim"
+    [ -d "$WS/victim" ]
+    [[ "$output" == *"Aborted"* ]]
+}
+
+@test "rm removes the engagement on confirmation" {
+    _mk_engagement victim
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" WORKSPACE_ROOT="$WS" DOTSEC_CONFIG="$CFG" \
+        bash -c "printf 'y\n' | '$DOTSEC_BIN' rm victim"
+    [ ! -d "$WS/victim" ]
+    [[ "$output" == *"removed"* ]]
+}
+
+@test "rm refuses an invalid target name" {
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" WORKSPACE_ROOT="$WS" DOTSEC_CONFIG="$CFG" \
+        "$DOTSEC_BIN" rm "../etc"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Invalid"* ]]
+}
+
+@test "rm with no target picks the engagement via fzf" {
+    _mk_engagement victim
+    # stub fzf selects the first listed engagement; 'y' confirms
+    run env PATH="${DOTSEC_HOME}/tests/stubs:$PATH" WORKSPACE_ROOT="$WS" DOTSEC_CONFIG="$CFG" \
+        bash -c "printf 'y\n' | '$DOTSEC_BIN' rm"
+    [ ! -d "$WS/victim" ]
+    [[ "$output" == *"removed"* ]]
+}

@@ -58,6 +58,7 @@ case "${1:-help}" in
     tmux)         shift; cmd_tmux "$@";;
     log)          shift; cmd_log "$@";;
     archive)      shift; cmd_archive "$@";;
+    rm|remove)    shift; cmd_rm "$@";;
     stop)         shift; cmd_stop "$@";;
     restart)      shift; cmd_restart "$@";;
     secrets)

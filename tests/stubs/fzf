@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# test stub: select the first line of stdin (ignores fzf args)
+head -n1

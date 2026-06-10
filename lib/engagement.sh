@@ -246,6 +246,67 @@ cmd_archive() {
     echo ""
 }
 
+# ── Remove ───────────────────────────────────────────────
+__engagement_names() {
+    local d
+    for d in "${WORKSPACE_ROOT:-/workspace}"/*/; do
+        [[ -d "$d" ]] || continue
+        basename "$d"
+    done
+}
+
+cmd_rm() {
+    local target="" do_archive=0 arg
+    for arg in "$@"; do
+        case "$arg" in
+            --archive) do_archive=1 ;;
+            -*) printf '%b\n' "${RED}[!] Unknown flag: ${arg}${RESET}" >&2; exit 1 ;;
+            *)  [[ -z "$target" ]] && target="$arg" ;;
+        esac
+    done
+    [[ -z "$target" ]] && target="${TARGET:-}"
+    # No target given → interactive pick with fzf.
+    if [[ -z "$target" ]]; then
+        if command -v fzf >/dev/null 2>&1; then
+            target=$(__engagement_names | fzf --prompt="rm engagement> " --height=40% --reverse \
+                --preview="cat ${WORKSPACE_ROOT:-/workspace}/{}/.env 2>/dev/null" 2>/dev/null || true)
+            [[ -z "$target" ]] && { printf '%b\n' "${DIM}Aborted${RESET}" >&2; exit 0; }
+        else
+            printf '%b\n' "${RED}[!] Usage: dotsec rm <target> [--archive]${RESET} ${DIM}(or install fzf to pick)${RESET}" >&2; exit 1
+        fi
+    fi
+    if [[ ! "$target" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        printf '%b\n' "${RED}[!] Invalid target name: ${target}${RESET}" >&2; exit 1
+    fi
+    __require_docker
+    local ws="${WORKSPACE_ROOT:-/workspace}/${target}"
+    if [[ ! -d "$ws" ]]; then
+        printf '%b\n' "${RED}[!] Engagement not found: ${target}${RESET}" >&2; exit 1
+    fi
+    printf '%b' "${YELLOW}[?]${RESET} Permanently remove ${CYAN}${target}${RESET} ${DIM}(${ws})${RESET}? [y/N] " >&2
+    local ans; read -r ans || ans=""
+    [[ "$ans" =~ ^[Yy]$ ]] || { printf '%b\n' "${DIM}Aborted${RESET}" >&2; exit 0; }
+
+    [[ $do_archive -eq 1 ]] && cmd_archive "$target"
+
+    local container="${EXEGOL_CONTAINER:-exegol}"
+    docker rm -f "mitmproxy-${target}" "oob-${target}" >/dev/null 2>&1 || true
+    docker exec "$container" tmux kill-session -t "$target" >/dev/null 2>&1 || true
+
+    rm -rf "$ws" 2>/dev/null || true
+    if [[ -d "$ws" ]]; then
+        # leftover root-owned files (proxy certs written by the root container)
+        docker run --rm -v "${WORKSPACE_ROOT:-/workspace}:/ws" alpine rm -rf "/ws/${target}" >/dev/null 2>&1 || true
+    fi
+    if [[ -d "$ws" ]]; then
+        printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}some files remain (root-owned) — run:${RESET} ${YELLOW}sudo rm -rf ${ws}${RESET}" >&2
+    else
+        printf '%b\n' "  ${GREEN}removed${RESET} ${CYAN}${target}${RESET}"
+    fi
+    __homer_reload_if_running
+    return 0
+}
+
 # ── Stop / Restart ───────────────────────────────────────
 cmd_stop() {
     local target="${1:-${TARGET:-}}"
