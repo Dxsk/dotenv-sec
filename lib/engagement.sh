@@ -56,7 +56,6 @@ cmd_new() {
     # Merge global config defaults (only if key not already set)
     __dotsec_load_global
     [[ -n "${UA:-}" ]] && sed -i "s|H1-yourhandle|${UA}|g" "${ws}/.env"
-    [[ -n "${EXEGOL_CONTAINER:-}" ]] && sed -i "s|exegol-default|${EXEGOL_CONTAINER}|g" "${ws}/.env"
     [[ -n "${PROXY_PORT:-}" ]] && sed -i "s|PROXY_PORT=\"9999\"|PROXY_PORT=\"${PROXY_PORT}\"|g" "${ws}/.env"
     [[ -n "${WEB_PORT:-}" ]] && sed -i "s|WEB_PORT=\"9998\"|WEB_PORT=\"${WEB_PORT}\"|g" "${ws}/.env"
 
