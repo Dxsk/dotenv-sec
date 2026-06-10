@@ -33,7 +33,8 @@ if ! grep -qF "${SHELLRC_LINE}" "${SHELLRC}" 2>/dev/null; then
     echo "" >> "${SHELLRC}"
     echo "# dotenv-sec" >> "${SHELLRC}"
     echo "${SHELLRC_LINE}" >> "${SHELLRC}"
-    echo 'export DOTSEC_HOME="$HOME/Documents/github.com/Dxsk/dotenv-sec"' >> "${SHELLRC}"
+    echo "export DOTSEC_HOME=\"${DOTSEC_HOME}\"" >> "${SHELLRC}"
+    echo "source \"${DOTSEC_HOME}/config/shellrc.zsh\"" >> "${SHELLRC}"
     echo 'source <(dotsec completions zsh 2>/dev/null)' >> "${SHELLRC}"
     echo "[+] Shell integration added to ${SHELLRC}"
 else

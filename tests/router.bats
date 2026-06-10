@@ -125,3 +125,12 @@ _mk_engagement() {
     run "$DOTSEC_BIN" board bogus
     [[ "$output" == *"board up|down|reload|status"* ]]
 }
+
+@test "dotsec derives DOTSEC_HOME from its symlink when unset" {
+    tmpbin="$(mktemp -d)"
+    ln -s "${DOTSEC_HOME}/bin/dotsec" "${tmpbin}/dotsec"
+    run env -u DOTSEC_HOME "${tmpbin}/dotsec" help
+    rm -rf "$tmpbin"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Pentest environment launcher"* ]]
+}

@@ -2,7 +2,11 @@
 # ─── dotsec ─── dotenv-sec launcher ─────────────────────
 set -euo pipefail
 
-DOTSEC_HOME="${DOTSEC_HOME:-$HOME/Documents/github.com/Dxsk/dotenv-sec}"
+if [[ -z "${DOTSEC_HOME:-}" ]]; then
+    _dotsec_self="$(readlink -f "${BASH_SOURCE[0]}")"
+    DOTSEC_HOME="$(cd "$(dirname "$_dotsec_self")/.." && pwd)"
+    unset _dotsec_self
+fi
 DOTSEC_CONFIG="${DOTSEC_CONFIG:-$HOME/.config/dotenvsec}"
 # shellcheck disable=SC2034  # consumed by usage()/cmd_info in sourced libs
 VERSION="0.2.0"
