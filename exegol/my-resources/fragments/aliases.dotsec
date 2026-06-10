@@ -1,0 +1,2 @@
+# dotsec recon aliases
+alias subs='subfinder -d "$DOMAIN" -all -recursive'
