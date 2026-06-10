@@ -47,6 +47,7 @@ ${BOLD}${MAGENTA}EXEGOL${RESET}
   ${GREEN}exegol${RESET}   ${DIM}exec|shell|setup${RESET}     Run commands inside Exegol
 
 ${BOLD}${CYAN}INFO${RESET}
+  ${GREEN}status${RESET}   ${DIM}[target]${RESET}            Overview: engagements, proxy/tmux, stats
   ${GREEN}info${RESET}                           Show current engagement
   ${GREEN}help${RESET}                           This message
 
