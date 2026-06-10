@@ -98,3 +98,18 @@ teardown() { rm -rf "$TMP"; }
     run secrets_rotate "$TMP" bogus
     [ "$status" -ne 0 ]
 }
+
+@test "secrets_show never prints token values in clear" {
+    secrets_init "$TMP"
+    tok="$(grep '^export DOTSEC_API_TOKEN=' "${TMP}/.env.secrets" | sed -E 's/.*="(.*)"/\1/')"
+    run secrets_show "$TMP"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"$tok"* ]]
+}
+@test "secrets_show reports presence and ssh fingerprint" {
+    secrets_init "$TMP"
+    run secrets_show "$TMP"
+    [[ "$output" == *"DOTSEC_API_TOKEN"* ]]
+    [[ "$output" == *"SSH"* ]]
+    [[ "$output" == *"SHA256:"* ]]
+}

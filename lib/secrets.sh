@@ -99,3 +99,31 @@ secrets_rotate() {
     esac
     return 0
 }
+
+# Masked summary: presence + SSH fingerprint + CA path. Never prints values.
+secrets_show() {
+    local ws="$1"
+    local secfile="${ws}/.env.secrets"
+    local keydir="${ws}/keys"
+    local key
+    printf '%b\n' "${BOLD}${CYAN}Secrets${RESET} ${DIM}${ws}${RESET}"
+    for key in DOTSEC_SESSION_SECRET DOTSEC_API_TOKEN MITMWEB_PASS; do
+        if grep -qE "^(export[[:space:]]+)?${key}=" "$secfile" 2>/dev/null; then
+            printf '%b\n' "  ${GREEN}✓${RESET} ${key} ${DIM}(set)${RESET}"
+        else
+            printf '%b\n' "  ${RED}✗${RESET} ${key} ${DIM}(missing)${RESET}"
+        fi
+    done
+    if [[ -f "${keydir}/id_ed25519.pub" ]]; then
+        local fp
+        fp=$(ssh-keygen -lf "${keydir}/id_ed25519.pub" 2>/dev/null | awk '{print $2}')
+        printf '%b\n' "  ${GREEN}✓${RESET} SSH ${DIM}${fp}${RESET}"
+    else
+        printf '%b\n' "  ${RED}✗${RESET} SSH ${DIM}(missing)${RESET}"
+    fi
+    if ls "${ws}"/proxy/certs/mitmproxy-ca*.pem >/dev/null 2>&1; then
+        printf '%b\n' "  ${GREEN}✓${RESET} CA  ${DIM}${ws}/proxy/certs${RESET}"
+    else
+        printf '%b\n' "  ${YELLOW}…${RESET} CA  ${DIM}(generated on proxy up)${RESET}"
+    fi
+}
