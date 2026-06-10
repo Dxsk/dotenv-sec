@@ -139,17 +139,19 @@ cmd_browser() {
         flags+=" --disable-gpu --ozone-platform=x11"
     fi
 
-    # Extensions (runtime, managed by `dotsec ext sync`) + favourites policy.
+    # Extensions (runtime, managed by `dotsec ext sync`) + Chromium managed
+    # policies (favourites + bookmark bar). The entrypoint writes a second
+    # policy file that pins the extensions and grants them all-hosts access.
     local extra=()
     local ext_dir="${DOTSEC_EXT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/dotenvsec/extensions}"
     if [[ -d "$ext_dir" ]] && [[ -n "$(ls -A "$ext_dir" 2>/dev/null)" ]]; then
         extra+=(-v "${ext_dir}:/extensions:ro")
     fi
-    local bm="${DOTSEC_HOME}/chromium/managed-bookmarks.json"
-    local user_bm="${XDG_CONFIG_HOME:-$HOME/.config}/dotenvsec/bookmarks.json"
-    if [[ -f "$user_bm" ]]; then bm="$user_bm"; fi
-    if [[ -f "$bm" ]]; then
-        extra+=(-v "${bm}:/etc/chromium/policies/managed/dotsec.json:ro")
+    local pol="${DOTSEC_HOME}/chromium/managed-policies.json"
+    local user_pol="${XDG_CONFIG_HOME:-$HOME/.config}/dotenvsec/policies.json"
+    if [[ -f "$user_pol" ]]; then pol="$user_pol"; fi
+    if [[ -f "$pol" ]]; then
+        extra+=(-v "${pol}:/etc/chromium/policies/managed/dotsec.json:ro")
     fi
 
     docker run --rm \

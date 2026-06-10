@@ -2,5 +2,6 @@
   "ManagedBookmarks": [
     { "toplevel_name": "dotsec" },
     { "name": "CyberChef", "url": "https://gchq.github.io/CyberChef/" }
-  ]
+  ],
+  "BookmarkBarEnabled": true
 }

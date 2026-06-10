@@ -115,12 +115,13 @@ EOF
     [[ "$output" == *up-to-date* ]]
 }
 
-@test "managed-bookmarks.json is valid JSON with CyberChef" {
+@test "managed-policies.json is valid JSON with bookmarks + bar enabled" {
     command -v python3 >/dev/null || skip "python3 not installed"
-    run python3 -m json.tool "$DOTSEC_HOME/chromium/managed-bookmarks.json"
+    run python3 -m json.tool "$DOTSEC_HOME/chromium/managed-policies.json"
     [ "$status" -eq 0 ]
     [[ "$output" == *ManagedBookmarks* ]]
     [[ "$output" == *CyberChef* ]]
+    [[ "$output" == *BookmarkBarEnabled* ]]
 }
 
 @test "cmd_browser mounts extensions dir and bookmarks policy" {
