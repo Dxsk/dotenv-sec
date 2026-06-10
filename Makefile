@@ -41,6 +41,7 @@ shell:  ## Add shell integration to ~/.zshrc
 		echo "# dotenv-sec" >> $(HOME)/.zshrc; \
 		echo 'export PATH="$$HOME/.local/bin:$$PATH"' >> $(HOME)/.zshrc; \
 		echo 'export DOTSEC_HOME="$(DOTSEC_HOME)"' >> $(HOME)/.zshrc; \
+		echo 'source "$(DOTSEC_HOME)/config/shellrc.zsh"' >> $(HOME)/.zshrc; \
 		echo 'source <(dotsec completions zsh 2>/dev/null)' >> $(HOME)/.zshrc; \
 		echo "  Added to .zshrc"; \
 	}

@@ -121,37 +121,39 @@ DOC
     fi
 }
 
-cmd_load() {
+# Emit `export …` lines on stdout so a shell wrapper can `source <(dotsec env x)`.
+# stdout stays clean (only the env files); errors go to stderr.
+cmd_env() {
     local target="${1:-${TARGET:-}}"
     if [[ -z "$target" ]]; then
-        printf '%b\n' "${RED}[!] Usage: dotsec load <target>${RESET}" >&2
+        printf '%b\n' "${RED}[!] Usage: dotsec env <target>${RESET}" >&2
         exit 1
     fi
     local envfile="${WORKSPACE_ROOT}/${target}/.env"
-    if [[ ! -f "$envfile" ]]; then
-        printf '%b\n' "${RED}[!] No .env found for ${target} at ${envfile}${RESET}" >&2
-        printf '%b\n' "  Run ${YELLOW}dotsec new ${target}${RESET} first" >&2
-        exit 1
-    fi
-    __dotsec_load_global
-    if ! __sec_guard_envfile "$envfile"; then
-        printf '%b\n' "${RED}[!] .env contains command substitution — refusing to source${RESET}" >&2
-        exit 1
-    fi
-    source "$envfile"
     local secfile="${WORKSPACE_ROOT}/${target}/.env.secrets"
+    if [[ ! -f "$envfile" ]]; then
+        printf '%b\n' "${RED}[!] No .env for ${target} at ${envfile}${RESET}" >&2
+        exit 1
+    fi
+    if ! __sec_guard_envfile "$envfile"; then
+        printf '%b\n' "${RED}[!] .env contains command substitution — refusing${RESET}" >&2
+        exit 1
+    fi
+    cat "$envfile"
     if [[ -f "$secfile" ]]; then
         if ! __sec_guard_envfile "$secfile"; then
-            printf '%b\n' "${RED}[!] .env.secrets contains command substitution — refusing to source${RESET}" >&2
+            printf '%b\n' "${RED}[!] .env.secrets contains command substitution — refusing${RESET}" >&2
             exit 1
         fi
-        source "$secfile"
+        cat "$secfile"
     fi
-    printf '%b\n' "  ${GREEN}${BOLD}${TARGET}${RESET} ${DIM}→${RESET} ${DIM}${WORKSPACE}${RESET}"
-    printf '%b\n' "  ${DIM}Proxy${RESET}  ${YELLOW}${HTTP_PROXY}${RESET}"
-    printf '%b\n' "  ${DIM}UA${RESET}     ${MAGENTA}${UA}${RESET}"
-    echo ""
-    printf '%b\n' "${DIM}To keep vars persistent:${RESET} ${YELLOW}source <(dotsec load ${target})${RESET}"
+}
+
+cmd_load() {
+    printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}dotsec load needs the shell function.${RESET}" >&2
+    printf '%b\n' "  ${DIM}Add to your zshrc:${RESET} ${YELLOW}source \"${DOTSEC_HOME}/config/shellrc.zsh\"${RESET}" >&2
+    printf '%b\n' "  ${DIM}Or one-shot:${RESET} ${YELLOW}source <(dotsec env ${1:-<target>})${RESET}" >&2
+    exit 1
 }
 
 cmd_unload() {

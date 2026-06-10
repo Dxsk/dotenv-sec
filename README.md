@@ -98,7 +98,7 @@ dotsec rotate acme-corp mitmweb   # rotate proxy password only (no prompt)
 dotsec proxy up          # start mitmproxy container
 # → Proxy  : http://127.0.0.1:9999
 # → Web UI : http://127.0.0.1:9998
-# → CA PEM : /workspace/$TARGET/proxy/certs/mitmproxy-ca.pem
+# → CA PEM : /workspace/$TARGET/proxy/certs/mitmproxy-ca-cert.pem
 
 dotsec proxy status      # check container
 dotsec proxy logs        # tail container logs
@@ -142,10 +142,8 @@ This installs:
 
 ## Docker Security
 
-- Base images pinned with `@sha256` digests
-- All packages pinned to exact versions
-- Non-root users inside containers
-- Ports > 1024 (rootless Docker compatible)
+- Base images pinned by `@sha256` digest
+- Containers run as root today (non-root hardening tracked separately); all service ports are >1024 (rootless-Docker friendly)
 - CI pipeline runs Trivy vulnerability scans on every push
 - Scheduled scan every Monday + automatic CVE issue creation
 
@@ -172,6 +170,15 @@ git clone git@github.com:Dxsk/dotenv-sec.git
 cd dotenv-sec
 make install
 source ~/.zshrc
+```
+
+## Development
+
+```bash
+pre-commit install   # runs shellcheck + bats on every commit
+make test            # bats test suite
+make lint            # shellcheck all bash
+make smoke           # Docker integration smoke (requires make build)
 ```
 
 ## License

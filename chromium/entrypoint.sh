@@ -33,7 +33,7 @@ if [ -n "$CA_FILE" ]; then
 fi
 
 # If proxy is set and no CA, warn
-if [ -n "$HTTP_PROXY" ] && [ ! -f /certs/mitmproxy-ca.pem ]; then
+if [ -n "$HTTP_PROXY" ] && [ -z "$CA_FILE" ]; then
     CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ignore-certificate-errors"
     echo "[!] No CA cert mounted: ignoring cert errors"
 fi
