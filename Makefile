@@ -54,6 +54,9 @@ build:  ## Build all Docker images
 	@echo "[*] Building chromium image..."
 	@docker build -t dotenv-sec/chromium:latest $(DOTSEC_HOME)/chromium
 	@echo "[+] chromium done"
+	@echo "[*] Building oob listener image..."
+	@docker build -t dotenv-sec/oob:latest $(DOTSEC_HOME)/listener
+	@echo "[+] oob done"
 
 board-up:  ## Start Homer dashboard
 	@docker network inspect dotsec-proxy-net &>/dev/null || docker network create dotsec-proxy-net

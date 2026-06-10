@@ -46,6 +46,7 @@ echo ""
 echo "[*] Building docker images..."
 docker build -t dotenv-sec/mitmproxy:latest "${DOTSEC_HOME}/mitmproxy" && echo "[+] mitmproxy image built"
 docker build -t dotenv-sec/chromium:latest "${DOTSEC_HOME}/chromium" && echo "[+] chromium image built"
+docker build -t dotenv-sec/oob:latest "${DOTSEC_HOME}/listener" && echo "[+] oob image built"
 
 echo ""
 printf '%b\n' "\033[1;32m[✓] dotsec installed!\033[0m"
