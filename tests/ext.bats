@@ -90,3 +90,27 @@ EOF
     [ "$status" -ne 0 ]
     [ ! -f "$d/ext/beta/manifest.json" ]
 }
+
+@test "ext sync installs extensions from manifest" {
+    local d; d="$(mktemp -d)"
+    _mk_github_fixture "$d"
+    local want; want="$(sha256sum "$d/dl.tar.gz" | cut -d' ' -f1)"
+    printf 'alpha | github | owner/alpha | v1.0 | %s | .\n' "$want" > "$d/m.list"
+    run env PATH="$d/bin:$PATH" DOTSEC_EXT_DIR="$d/ext" DOTSEC_EXT_MANIFEST="$d/m.list" \
+        bash -c "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/ext.sh'; ext_sync"
+    [ "$status" -eq 0 ]
+    [ -f "$d/ext/alpha/manifest.json" ]
+}
+
+@test "ext sync is idempotent (skips up-to-date)" {
+    local d; d="$(mktemp -d)"
+    _mk_github_fixture "$d"
+    local want; want="$(sha256sum "$d/dl.tar.gz" | cut -d' ' -f1)"
+    printf 'alpha | github | owner/alpha | v1.0 | %s | .\n' "$want" > "$d/m.list"
+    env PATH="$d/bin:$PATH" DOTSEC_EXT_DIR="$d/ext" DOTSEC_EXT_MANIFEST="$d/m.list" \
+        bash -c "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/ext.sh'; ext_sync" >/dev/null 2>&1
+    run env PATH="$d/bin:$PATH" DOTSEC_EXT_DIR="$d/ext" DOTSEC_EXT_MANIFEST="$d/m.list" \
+        bash -c "source '$DOTSEC_HOME/lib/ui.sh'; source '$DOTSEC_HOME/lib/ext.sh'; ext_sync"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *up-to-date* ]]
+}

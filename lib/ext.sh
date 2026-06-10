@@ -128,10 +128,34 @@ __ext_fetch_webstore() {
     printf '%b\n' "  ${GREEN}[+]${RESET} ${name} ${DIM}(crx ${ver})${RESET}"
 }
 
+# __ext_sync_one <name> <provider> <source> <ref> <sha256> <subdir>
+__ext_sync_one() {
+    local name="$1" provider="$2" src="$3" ref="$4" sha="$5" subdir="$6"
+    if [[ -n "${__EXT_ONLY:-}" && "${__EXT_ONLY}" != "$name" ]]; then
+        return 0
+    fi
+    local marker; marker="$(__ext_dir)/$name/.dotsec-version"
+    if [[ -f "$marker" ]] && [[ "$(cat "$marker")" == "$ref" ]]; then
+        printf '%b\n' "  ${DIM}= ${name} (up-to-date ${ref})${RESET}"
+        return 0
+    fi
+    # One failing extension must not abort the whole sync; the error is printed.
+    case "$provider" in
+        github)   __ext_fetch_github   "$name" "$src" "$ref" "$sha" "$subdir" || true;;
+        webstore) __ext_fetch_webstore "$name" "$src" "$ref" "$sha" || true;;
+        *) printf '%b\n' "  ${RED}[!] unknown provider '${provider}' for ${name}${RESET}" >&2;;
+    esac
+}
+
+# ext_sync [only]: install all (or one named) manifest entries into the ext dir.
 ext_sync() {
-    # Orchestration implemented in a later task.
-    printf '%b\n' "${YELLOW}[*]${RESET} ${DIM}ext sync not yet implemented${RESET}" >&2
-    return 0
+    local only="${1:-}"
+    local dir; dir="$(__ext_dir)"
+    mkdir -p "$dir"
+    printf '%b\n' "${YELLOW}[*]${RESET} Syncing extensions into ${CYAN}${dir}${RESET}"
+    __EXT_ONLY="$only"
+    __ext_each __ext_sync_one
+    unset __EXT_ONLY
 }
 
 cmd_ext() {
