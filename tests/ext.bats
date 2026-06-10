@@ -122,3 +122,24 @@ EOF
     [[ "$output" == *ManagedBookmarks* ]]
     [[ "$output" == *CyberChef* ]]
 }
+
+@test "cmd_browser mounts extensions dir and bookmarks policy" {
+    local d; d="$(mktemp -d)"
+    mkdir -p "$d/ext/foo" "$d/bin" "$d/ws/smoke/proxy/certs" "$d/cfg"
+    echo '{}' > "$d/ext/foo/manifest.json"
+    cat > "$d/bin/docker" <<EOF
+#!/usr/bin/env bash
+case "\$1" in
+  ps)  echo "mitmproxy-smoke";;   # proxy "running" → skip proxy_up
+  run) printf '%s\n' "\$*" > "$d/run.args";;
+esac
+exit 0
+EOF
+    chmod +x "$d/bin/docker"
+    run env PATH="$d/bin:$PATH" DOTSEC_EXT_DIR="$d/ext" WORKSPACE_ROOT="$d/ws" DOTSEC_CONFIG="$d/cfg" \
+        "$DOTSEC_BIN" browser smoke
+    [ "$status" -eq 0 ]
+    [ -f "$d/run.args" ]
+    grep -q -- "/extensions:ro" "$d/run.args"
+    grep -q -- "managed/dotsec.json:ro" "$d/run.args"
+}
