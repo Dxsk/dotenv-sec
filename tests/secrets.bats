@@ -11,6 +11,7 @@ teardown() { rm -rf "$TMP"; }
 @test "__sec_rand produces requested length, alnum only" {
     run __sec_rand 24
     [ "$status" -eq 0 ]
+    echo "DIAG actual length=${#output}" >&2   # shown by bats only on failure
     [ "${#output}" -eq 24 ]
     [[ "$output" =~ ^[A-Za-z0-9]+$ ]]
 }
