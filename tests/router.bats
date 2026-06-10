@@ -134,3 +134,12 @@ _mk_engagement() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Pentest environment launcher"* ]]
 }
+
+@test "no-Docker commands exit 0 (no set -e leak)" {
+    _mk_engagement acme
+    for cmd in "help" "info" "list" "unload" "secrets acme" "rotate acme token" "env acme"; do
+        run env WORKSPACE_ROOT="$WS" DOTSEC_CONFIG="$CFG" bash -c \
+            "'$DOTSEC_BIN' $cmd >/dev/null 2>&1; echo \$?"
+        [ "$output" = "0" ] || { echo "cmd '$cmd' exited $output"; false; }
+    done
+}
