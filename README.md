@@ -144,7 +144,6 @@ This installs:
 
 - Base images pinned by `@sha256` digest
 - Containers run as root today (non-root hardening tracked separately); all service ports are >1024 (rootless-Docker friendly)
-- Ports > 1024 (rootless Docker compatible)
 - CI pipeline runs Trivy vulnerability scans on every push
 - Scheduled scan every Monday + automatic CVE issue creation
 
