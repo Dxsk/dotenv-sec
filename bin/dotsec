@@ -55,6 +55,24 @@ case "${1:-help}" in
     archive)      shift; cmd_archive "$@";;
     stop)         shift; cmd_stop "$@";;
     restart)      shift; cmd_restart "$@";;
+    secrets)
+        shift
+        _t="${1:-${TARGET:-}}"
+        [[ -z "$_t" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec secrets <target>${RESET}" >&2; exit 1; }
+        secrets_show "${WORKSPACE_ROOT}/${_t}"
+        ;;
+    rotate)
+        shift
+        _t="${1:-${TARGET:-}}"; _type="${2:-all}"
+        [[ -z "$_t" ]] && { printf '%b\n' "${RED}[!] Usage: dotsec rotate <target> [all|token|mitmweb|ssh|ca]${RESET}" >&2; exit 1; }
+        if [[ "$_type" == "ssh" || "$_type" == "ca" || "$_type" == "all" ]]; then
+            printf '%b' "${YELLOW}[?]${RESET} Rotate '${_type}' for ${_t}? This invalidates deployed keys / CA trust. [y/N] " >&2
+            read -r _ans
+            [[ "$_ans" =~ ^[Yy]$ ]] || { printf '%b\n' "${DIM}Aborted${RESET}" >&2; exit 0; }
+        fi
+        secrets_rotate "${WORKSPACE_ROOT}/${_t}" "$_type"
+        printf '%b\n' "${GREEN}Rotated${RESET} ${CYAN}${_t}${RESET} ${DIM}(${_type})${RESET}"
+        ;;
     info)         cmd_info;;
     completions)  shift; exec "${DOTSEC_HOME}/bin/dotsec-completions" "$@";;
     help|--help|-h) usage;;

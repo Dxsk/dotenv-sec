@@ -28,6 +28,10 @@ ${BOLD}${YELLOW}PROXY & BROWSER${RESET}
 ${BOLD}${MAGENTA}DASHBOARD${RESET}
   ${GREEN}board${RESET}    ${DIM}up|down|reload|status${RESET}  Homer dashboard ${DIM}(127.0.0.1:9997)${RESET}
 
+${BOLD}${YELLOW}SECRETS${RESET}
+  ${GREEN}secrets${RESET}  ${DIM}[target]${RESET}            Show masked secret status
+  ${GREEN}rotate${RESET}   ${DIM}[target] [type]${RESET}     Regenerate (all|token|mitmweb|ssh|ca)
+
 ${BOLD}${BLUE}WORKSPACE${RESET}
   ${GREEN}spawn${RESET}    ${DIM}[session]${RESET}             Spawn 6-window tmux in Exegol + attach
   ${GREEN}tmux${RESET}     ${DIM}attach|create|kill|ls${RESET}  tmux sessions inside Exegol
