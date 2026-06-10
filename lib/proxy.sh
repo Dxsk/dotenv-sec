@@ -116,10 +116,19 @@ cmd_browser() {
     fi
 
     local proxy_host="mitmproxy-${target}"
+    # Forward the host (X)Wayland display: DISPLAY + X11 socket + the X auth
+    # cookie (xhost isn't always installed; the cookie is the robust path).
+    local x11=()
+    if [[ -n "${DISPLAY:-}" ]]; then
+        x11+=(-e "DISPLAY=${DISPLAY}" -v /tmp/.X11-unix:/tmp/.X11-unix:ro)
+        local xauth="${XAUTHORITY:-$HOME/.Xauthority}"
+        [[ -f "$xauth" ]] && x11+=(-e XAUTHORITY=/tmp/.Xauthority -v "${xauth}:/tmp/.Xauthority:ro")
+    fi
     docker run --rm \
         --network dotsec-proxy-net \
         -e HTTP_PROXY="http://${proxy_host}:8080" \
         -e HTTPS_PROXY="http://${proxy_host}:8080" \
+        "${x11[@]}" \
         -v "${ws}/proxy/certs:/certs:ro" \
         -p 127.0.0.1:9222:9222 \
         dotenv-sec/chromium:latest

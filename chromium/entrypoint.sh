@@ -49,4 +49,5 @@ if [ -d /extensions ] && [ "$(ls -A /extensions 2>/dev/null)" ]; then
 fi
 
 echo "[*] Launching Chromium..."
-exec chromium-browser $CHROMIUM_FLAGS ${1:-about:blank}
+# Arch's binary is `chromium` (not Debian's `chromium-browser`).
+exec chromium $CHROMIUM_FLAGS ${1:-about:blank}
