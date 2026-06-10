@@ -4,7 +4,7 @@
 # Usage: source <(dotsec completions zsh)
 
 _dotsec_completions() {
-    local commands="new load unload list spawn board dashboard proxy browser exegol tmux log secrets rotate archive stop restart completions info help"
+    local commands="new load unload list spawn board dashboard proxy browser exegol tmux log secrets rotate status archive stop restart completions info help"
     local proxy_sub="up down status logs"
     local board_sub="up start down stop reload status"
     local exegol_sub="exec shell setup"
