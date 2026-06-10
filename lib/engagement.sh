@@ -134,11 +134,19 @@ cmd_load() {
         exit 1
     fi
     __dotsec_load_global
-    if grep -qP '^\s*[a-zA-Z_][a-zA-Z0-9_]*=[^"]*\$\(|^\s*[a-zA-Z_][a-zA-Z0-9_]*=[^"]*`' "$envfile"; then
+    if ! __sec_guard_envfile "$envfile"; then
         printf '%b\n' "${RED}[!] .env contains command substitution — refusing to source${RESET}" >&2
         exit 1
     fi
     source "$envfile"
+    local secfile="${WORKSPACE_ROOT}/${target}/.env.secrets"
+    if [[ -f "$secfile" ]]; then
+        if ! __sec_guard_envfile "$secfile"; then
+            printf '%b\n' "${RED}[!] .env.secrets contains command substitution — refusing to source${RESET}" >&2
+            exit 1
+        fi
+        source "$secfile"
+    fi
     printf '%b\n' "  ${GREEN}${BOLD}${TARGET}${RESET} ${DIM}→${RESET} ${DIM}${WORKSPACE}${RESET}"
     printf '%b\n' "  ${DIM}Proxy${RESET}  ${YELLOW}${HTTP_PROXY}${RESET}"
     printf '%b\n' "  ${DIM}UA${RESET}     ${MAGENTA}${UA}${RESET}"
