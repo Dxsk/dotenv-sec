@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+mkdir -p "$OUT"
+
+[[ -s "$OUT/subdomains_alive.txt" ]] || { echo "[!] run recon-alive first"; exit 1; }
+echo "[*] katana crawl"
+katana -list "$OUT/subdomains_alive.txt" -d 5 -jc -kf -ps -pss waybackarchive,commoncrawl,alienvault \
+    -ef woff,css,png,svg,jpg,woff2,jpeg,gif -o "$OUT/allurls.txt" 2>/dev/null || true
+grep -iE '\.js($|\?)' "$OUT/allurls.txt" 2>/dev/null | sort -u > "$OUT/js.txt" || true
+gau "$DOMAIN" 2>/dev/null | sort -u > "$OUT/params.txt" || true
+echo "[+] $(wc -l < "$OUT/allurls.txt" 2>/dev/null || echo 0) urls, $(wc -l < "$OUT/js.txt" 2>/dev/null || echo 0) js"

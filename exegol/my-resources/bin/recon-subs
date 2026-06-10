@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+mkdir -p "$OUT"
+
+echo "[*] subfinder $DOMAIN"
+subfinder -d "$DOMAIN" -all -recursive 2>/dev/null | sort -u > "$OUT/subdomains.txt"
+echo "[+] $(wc -l < "$OUT/subdomains.txt") subdomains → $OUT/subdomains.txt"

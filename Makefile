@@ -63,17 +63,13 @@ board-up:  ## Start Homer dashboard
 board-down:  ## Stop Homer dashboard
 	@docker compose -f $(DOTSEC_HOME)/homer/docker-compose.yml --project-name dotsec-homer down
 
-exegol-setup:  ## Deploy my-resources to ~/.exegol/my-resources/
-	@echo "[*] Deploying Exegol my-resources..."
-	@mkdir -p $(HOME)/.exegol/my-resources/dotenv-sec
-	@cp $(DOTSEC_HOME)/exegol/my-resources/setup.sh $(HOME)/.exegol/my-resources/dotenv-sec/setup.sh
-	@chmod +x $(HOME)/.exegol/my-resources/dotenv-sec/setup.sh
-	@echo "  → $(HOME)/.exegol/my-resources/dotenv-sec/setup.sh"
-	@echo "[+] Exegol my-resources deployed"
+exegol-setup:  ## Deploy recon bundle to ~/.exegol/my-resources/ (merge)
+	@echo "[*] Deploying Exegol my-resources bundle..."
+	@DOTSEC_HOME="$(DOTSEC_HOME)" bash $(DOTSEC_HOME)/exegol/my-resources/deploy.sh
 
 exegol-install-tools:  ## Run setup.sh inside EXEGOL_CONTAINER (uv + pnpm)
 	@echo "[*] Installing tools in Exegol container..."
-	@docker exec -it $(EXEGOL_CONTAINER) bash /opt/resources/dotenv-sec/setup.sh
+	@docker exec -it $(EXEGOL_CONTAINER) bash /opt/my-resources/setup/load_user_setup.sh
 	@echo "[+] Tools installed"
 
 scan:  ## Scan images with Trivy (requires: trivy)
