@@ -86,14 +86,14 @@ DOC
     printf '%b\n' "  ${DIM}[4/6]${RESET} ${DIM}Starting mitmproxy...${RESET}"
     DOTSEC_WORKSPACE_ROOT="${ws_root}" TARGET="${target}" proxy_up
 
-    # 5. Ensure Exegol is running with workspace mounted
-    printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Ensuring Exegol container...${RESET}"
-    __exegol_ensure_running "$target" "$ws_root"
+    # 5. Create the per-engagement Exegol container (workspace mounted, my-resources)
+    printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Creating Exegol container...${RESET}"
+    __exegol_ensure_running "$target" "$ws" || true
 
-    # 6. Spawn tmux inside Exegol
+    # 6. Spawn tmux inside Exegol (engagement workspace is mounted at /workspace)
     printf '%b\n' "  ${DIM}[6/6]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
-    local container="${EXEGOL_CONTAINER:-exegol}"
-    local load_cmd="source /workspace/${target}/.env; [ -f /workspace/${target}/.env.secrets ] && source /workspace/${target}/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
+    local container; container="$(__exegol_name "$target")"
+    local load_cmd="source /workspace/.env; [ -f /workspace/.env.secrets ] && source /workspace/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     echo ""
@@ -206,7 +206,7 @@ cmd_archive() {
         exit 1
     fi
 
-    local container="${EXEGOL_CONTAINER:-exegol}"
+    local container; container="$(__exegol_name "$target")"
     local timestamp
     timestamp=$(date '+%Y%m%d-%H%M%S')
     local archive_name="${target}-${timestamp}.tar.gz"
@@ -288,9 +288,8 @@ cmd_rm() {
 
     [[ $do_archive -eq 1 ]] && cmd_archive "$target"
 
-    local container="${EXEGOL_CONTAINER:-exegol}"
-    docker rm -f "mitmproxy-${target}" "oob-${target}" >/dev/null 2>&1 || true
-    docker exec "$container" tmux kill-session -t "$target" >/dev/null 2>&1 || true
+    # Remove the per-engagement containers (never an externally forced one)
+    docker rm -f "mitmproxy-${target}" "oob-${target}" "exegol-${target}" >/dev/null 2>&1 || true
 
     rm -rf "$ws" 2>/dev/null || true
     if [[ -d "$ws" ]]; then
@@ -313,7 +312,7 @@ cmd_stop() {
         printf '%b\n' "${RED}[!] Usage: dotsec stop <target>${RESET}" >&2
         exit 1
     fi
-    local container="${EXEGOL_CONTAINER:-exegol}"
+    local container="exegol-${target}"
 
     printf '%b\n' "${BOLD}${YELLOW}Stopping${RESET} ${CYAN}${target}${RESET}..."
 
@@ -325,12 +324,12 @@ cmd_stop() {
         printf '%b\n' "  ${DIM}Proxy: already stopped${RESET}"
     fi
 
-    # Kill tmux session in Exegol
-    if docker exec "$container" tmux has-session -t "$target" 2>/dev/null; then
-        printf '%b\n' "  ${DIM}Tmux session...${RESET}"
-        docker exec "$container" tmux kill-session -t "$target" 2>/dev/null || true
+    # Stop the Exegol container
+    if docker ps --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        printf '%b\n' "  ${DIM}Exegol container...${RESET}"
+        docker stop "$container" >/dev/null 2>&1 || true
     else
-        printf '%b\n' "  ${DIM}Tmux: no session${RESET}"
+        printf '%b\n' "  ${DIM}Exegol: not running${RESET}"
     fi
 
     # Stop dashboard
@@ -352,7 +351,7 @@ cmd_restart() {
         exit 1
     fi
     local ws="${WORKSPACE_ROOT:-/workspace}/${target}"
-    local container="${EXEGOL_CONTAINER:-exegol}"
+    local container; container="$(__exegol_name "$target")"
 
     if [[ ! -d "$ws" ]] || [[ ! -f "${ws}/.env" ]]; then
         printf '%b\n' "${RED}[!] Engagement not found: ${target}${RESET}" >&2
@@ -375,11 +374,11 @@ cmd_restart() {
 
     # Ensure Exegol
     printf '%b\n' "  ${DIM}Exegol...${RESET}"
-    __exegol_ensure_running "$target"
+    __exegol_ensure_running "$target" "$ws" || true
 
     # Recreate tmux session
     printf '%b\n' "  ${DIM}Tmux session...${RESET}"
-    local load_cmd="source /workspace/${target}/.env; [ -f /workspace/${target}/.env.secrets ] && source /workspace/${target}/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
+    local load_cmd="source /workspace/.env; [ -f /workspace/.env.secrets ] && source /workspace/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     printf '%b\n' "  ${GREEN}Environment restarted${RESET}"
