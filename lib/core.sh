@@ -17,17 +17,10 @@ __dotsec_load_global() {
     if [[ -f "${DOTSEC_CONFIG}/config" ]]; then
         source "${DOTSEC_CONFIG}/config"
     fi
-    # Resolve the Exegol container: detect when unset OR when the configured one
-    # no longer exists (e.g. removed/recreated) — so a stale config value never
-    # sticks. Prefer a running container, fall back to any.
-    if [[ -z "${EXEGOL_CONTAINER:-}" ]] || ! docker container inspect "${EXEGOL_CONTAINER}" >/dev/null 2>&1; then
-        local detected
-        detected=$(docker ps --filter "name=exegol" --format '{{.Names}}' 2>/dev/null | head -1)
-        [[ -z "$detected" ]] && detected=$(docker ps -a --filter "name=exegol" --format '{{.Names}}' 2>/dev/null | head -1)
-        [[ -n "$detected" ]] && EXEGOL_CONTAINER="$detected"
-    fi
-    # Last statement must not leak a non-zero status under `set -e` (this
-    # function runs top-level; a falsy [[ -n ]] above would otherwise abort dotsec).
+    # Exegol containers are per-engagement (exegol-<target>, see __exegol_name).
+    # EXEGOL_CONTAINER stays unset unless the user forces one in their config —
+    # no auto-detection, which would otherwise pin every engagement to whichever
+    # exegol-* container happens to be running.
     return 0
 }
 

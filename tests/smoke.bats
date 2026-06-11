@@ -34,26 +34,6 @@ load test_helper
     [[ "$output" == *REACHED* ]]
 }
 
-@test "__dotsec_load_global re-detects when the configured container is gone" {
-    run env DOTSEC_HOME="$DOTSEC_HOME" bash -euo pipefail -c '
-        DOTSEC_CONFIG=$(mktemp -d)
-        docker() {
-            case "$1" in
-                container) [[ "$2" == "inspect" ]] && return 1 ;;  # configured one gone
-                ps) echo "exegol-a" ;;                              # a running exegol exists
-            esac
-            return 0
-        }
-        source "$DOTSEC_HOME/lib/ui.sh"
-        source "$DOTSEC_HOME/lib/core.sh"
-        EXEGOL_CONTAINER="exegol-dead"
-        __dotsec_load_global
-        echo "GOT=$EXEGOL_CONTAINER"
-    '
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"GOT=exegol-a"* ]]
-}
-
 @test "dotsec list exits 0 when engagements exist" {
     local ws cfg
     ws="$(mktemp -d)"; cfg="$(mktemp -d)"
