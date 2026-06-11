@@ -88,3 +88,54 @@ jobs:
                 labels: ['security', 'cve']
               });
             }
+
+  ext-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check pinned extension versions
+        id: extcheck
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXT_OUTDATED_FILE: ext-outdated.md
+        run: |
+          set +e
+          bash .github/scripts/check-ext-versions.sh
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Open / update issue if extensions outdated
+        if: steps.extcheck.outputs.exit == '1'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const detail = fs.existsSync('ext-outdated.md')
+              ? fs.readFileSync('ext-outdated.md', 'utf8')
+              : 'Outdated extensions detected.';
+            const titlePrefix = '[ext] Outdated browser extensions';
+            const body = `Le contrôle hebdomadaire a détecté des extensions en retard dans \`chromium/extensions.list\` :\n\n${detail}\n\nMettre à jour le \`ref\` + \`sha256\` épinglés, puis relancer \`dotsec ext sync\`.`;
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'extensions',
+            });
+            const dup = open.data.find(i => i.title.startsWith(titlePrefix));
+            if (dup) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: dup.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `${titlePrefix} — ${new Date().toISOString().split('T')[0]}`,
+                body,
+                labels: ['extensions', 'maintenance'],
+              });
+            }
