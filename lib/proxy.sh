@@ -146,6 +146,8 @@ cmd_browser() {
     local ext_dir="${DOTSEC_EXT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/dotenvsec/extensions}"
     if [[ -d "$ext_dir" ]] && [[ -n "$(ls -A "$ext_dir" 2>/dev/null)" ]]; then
         extra+=(-v "${ext_dir}:/extensions:ro")
+    else
+        printf '%b\n' "  ${DIM}No extensions yet —${RESET} ${YELLOW}dotsec ext sync${RESET} ${DIM}to install them${RESET}" >&2
     fi
     local pol="${DOTSEC_HOME}/chromium/managed-policies.json"
     local user_pol="${XDG_CONFIG_HOME:-$HOME/.config}/dotenvsec/policies.json"
@@ -154,7 +156,10 @@ cmd_browser() {
         extra+=(-v "${pol}:/etc/chromium/policies/managed/dotsec.json:ro")
     fi
 
-    docker run --rm \
+    # Detached so it doesn't spam the console; close the window or
+    # `docker stop dotsec-browser-<target>` to quit.
+    docker rm -f "dotsec-browser-${target}" >/dev/null 2>&1 || true
+    docker run -d --rm --name "dotsec-browser-${target}" \
         --network dotsec-proxy-net \
         -e HTTP_PROXY="http://${proxy_host}:8080" \
         -e HTTPS_PROXY="http://${proxy_host}:8080" \
@@ -163,5 +168,7 @@ cmd_browser() {
         "${extra[@]}" \
         -v "${ws}/proxy/certs:/certs:ro" \
         -p 127.0.0.1:9222:9222 \
-        dotenv-sec/chromium:latest
+        dotenv-sec/chromium:latest >/dev/null
+    printf '%b\n' "  ${GREEN}Browser${RESET} ${DIM}→ background${RESET} ${YELLOW}dotsec-browser-${target}${RESET}"
+    printf '%b\n' "  ${DIM}Quit: close the window or${RESET} ${YELLOW}docker stop dotsec-browser-${target}${RESET}"
 }
