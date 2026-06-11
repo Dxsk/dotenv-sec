@@ -6,6 +6,7 @@ cmd_new() {
     local ws_root="${WORKSPACE_ROOT}"
     local target=""
     local domain=""
+    local do_browser=1 do_ext=1
 
     # Parse flags
     while [[ $# -gt 0 ]]; do
@@ -14,6 +15,8 @@ cmd_new() {
                 ws_root="${2}"; shift 2 ;;
             -w=*|--workspace=*)
                 ws_root="${1#*=}"; shift ;;
+            --no-browser) do_browser=0; shift ;;
+            --no-ext)     do_ext=0; shift ;;
             --)
                 shift; break ;;
             -*)
@@ -51,7 +54,7 @@ cmd_new() {
     printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
 
     # 1. Workspace structure
-    printf '%b\n' "  ${DIM}[1/6]${RESET} ${DIM}Creating workspace...${RESET}"
+    printf '%b\n' "  ${DIM}[1/8]${RESET} ${DIM}Creating workspace...${RESET}"
     mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
     # Default ACLs so files the root Exegol/proxy containers create in the
     # workspace stay editable from the host (your user keeps rwx by inheritance).
@@ -60,7 +63,7 @@ cmd_new() {
     fi
 
     # 2. Copy and fill .env
-    printf '%b\n' "  ${DIM}[2/6]${RESET} ${DIM}Setting up dotenv...${RESET}"
+    printf '%b\n' "  ${DIM}[2/8]${RESET} ${DIM}Setting up dotenv...${RESET}"
     cp "${DOTSEC_HOME}/templates/.env.engagement" "${ws}/.env"
     sed -i "s|WORKSPACE=\"/workspace/acme-corp\"|WORKSPACE=\"${ws}\"|" "${ws}/.env"
     sed -i "s|TARGET=\"acme-corp\"|TARGET=\"${target}\"|" "${ws}/.env"
@@ -76,7 +79,7 @@ cmd_new() {
     secrets_init "${ws}"
 
     # 3. ENGAGEMENT.md
-    printf '%b\n' "  ${DIM}[3/6]${RESET} ${DIM}Writing ENGAGEMENT.md...${RESET}"
+    printf '%b\n' "  ${DIM}[3/8]${RESET} ${DIM}Writing ENGAGEMENT.md...${RESET}"
     cat > "${ws}/ENGAGEMENT.md" <<DOC
 # Engagement: ${target}
 
@@ -96,18 +99,30 @@ TODO
 DOC
 
     # 4. Start proxy
-    printf '%b\n' "  ${DIM}[4/6]${RESET} ${DIM}Starting mitmproxy...${RESET}"
+    printf '%b\n' "  ${DIM}[4/8]${RESET} ${DIM}Starting mitmproxy...${RESET}"
     DOTSEC_WORKSPACE_ROOT="${ws_root}" TARGET="${target}" proxy_up
 
-    # 5. Create the per-engagement Exegol container (workspace mounted, my-resources)
-    printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Creating Exegol container...${RESET}"
+    # 5. Sync browser extensions (idempotent → ~/.config/dotenvsec/extensions)
+    if [[ $do_ext -eq 1 ]]; then
+        printf '%b\n' "  ${DIM}[5/8]${RESET} ${DIM}Syncing browser extensions...${RESET}"
+        ext_sync >/dev/null 2>&1 || true
+    fi
+
+    # 6. Create the per-engagement Exegol container (workspace mounted, my-resources)
+    printf '%b\n' "  ${DIM}[6/8]${RESET} ${DIM}Creating Exegol container...${RESET}"
     __exegol_ensure_running "$target" "$ws" || true
 
-    # 6. Spawn tmux inside Exegol (engagement workspace is mounted at /workspace)
-    printf '%b\n' "  ${DIM}[6/6]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
+    # 7. Spawn tmux inside Exegol (engagement workspace is mounted at /workspace)
+    printf '%b\n' "  ${DIM}[7/8]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
     local container; container="$(__exegol_name "$target")"
     local load_cmd="source /workspace/.env; [ -f /workspace/.env.secrets ] && source /workspace/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
+
+    # 8. Launch the proxied browser in the background (extensions mounted + pinned)
+    if [[ $do_browser -eq 1 ]]; then
+        printf '%b\n' "  ${DIM}[8/8]${RESET} ${DIM}Launching browser...${RESET}"
+        WORKSPACE_ROOT="${ws_root}" cmd_browser "$target" || true
+    fi
 
     echo ""
     printf '%b\n' "  ${BOLD}${GREEN}┌─ Engagement: ${CYAN}${target}${GREEN} ─────────────────┐${RESET}"
