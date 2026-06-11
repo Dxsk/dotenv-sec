@@ -22,9 +22,11 @@ merge_block() {
 }
 
 mkdir -p "${DEST}/bin"
-if compgen -G "${SRC}/bin/recon-*" >/dev/null; then
-    cp "${SRC}/bin/"recon-* "${DEST}/bin/"
-fi
+for prefix in recon- scan- audit-; do
+    if compgen -G "${SRC}/bin/${prefix}*" >/dev/null; then
+        cp "${SRC}/bin/${prefix}"* "${DEST}/bin/"
+    fi
+done
 [[ -f "${SRC}/bin/dl" ]] && cp "${SRC}/bin/dl" "${DEST}/bin/"
 chmod +x "${DEST}/bin/"* 2>/dev/null || true
 

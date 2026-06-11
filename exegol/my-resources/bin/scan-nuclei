@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+VULN="${WORKSPACE:-$PWD}/scans/vuln"
+mkdir -p "$VULN"
+
+# Vulnerability scan the alive hosts with nuclei.
+command -v nuclei >/dev/null 2>&1 || { echo "[!] nuclei not found"; exit 1; }
+src="$OUT/subdomains_alive.txt"
+[[ -s "$src" ]] || { echo "[!] run recon-alive first"; exit 1; }
+
+# Conditional flags via an array (keeps UA header / proxy correctly quoted).
+args=(-l "$src"
+    -severity "${NUCLEI_SEVERITY:-critical,high,medium}"
+    -rate-limit "${NUCLEI_RATE:-150}"
+    -stats -o "$VULN/nuclei.txt")
+[[ -n "${UA:-}" ]] && args+=(-header "User-Agent: ${UA}")
+# Route through the engagement proxy so findings are captured in mitmproxy.
+[[ -n "${HTTP_PROXY:-}" ]] && args+=(-proxy "$HTTP_PROXY")
+
+echo "[*] nuclei scan ($(wc -l < "$src") targets, severity ${NUCLEI_SEVERITY:-critical,high,medium})"
+nuclei "${args[@]}" 2>/dev/null || true
+echo "[+] $(wc -l < "$VULN/nuclei.txt" 2>/dev/null || echo 0) findings → $VULN/nuclei.txt"

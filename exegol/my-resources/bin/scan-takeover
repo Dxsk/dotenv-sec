@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+VULN="${WORKSPACE:-$PWD}/scans/vuln"
+mkdir -p "$VULN"
+
+# Subdomain takeover check over the full subdomain list (dangling CNAMEs).
+src="$OUT/subdomains.txt"
+[[ -s "$src" ]] || { echo "[!] run recon-subs first"; exit 1; }
+
+if command -v subzy >/dev/null 2>&1; then
+    echo "[*] subzy takeover check ($(wc -l < "$src") subdomains)"
+    subzy run --targets "$src" --concurrency 100 --hide_fails --verify_ssl 2>/dev/null \
+        | tee "$VULN/takeover.txt" >/dev/null || true
+elif command -v nuclei >/dev/null 2>&1; then
+    echo "[*] nuclei takeover templates ($(wc -l < "$src") subdomains)"
+    nuclei -l "$src" -tags takeover -severity critical,high,medium \
+        -o "$VULN/takeover.txt" 2>/dev/null || true
+else
+    echo "[!] neither subzy nor nuclei found"; exit 1
+fi
+echo "[+] takeover results → $VULN/takeover.txt"

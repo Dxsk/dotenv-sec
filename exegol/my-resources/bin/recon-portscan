@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+PORTS="${WORKSPACE:-$PWD}/scans/ports"
+mkdir -p "$PORTS"
+
+# Port scan the alive hosts (fallback: the raw subdomain list).
+command -v naabu >/dev/null 2>&1 || { echo "[!] naabu not found"; exit 1; }
+src="$OUT/subdomains_alive.txt"
+[[ -s "$src" ]] || src="$OUT/subdomains.txt"
+[[ -s "$src" ]] || { echo "[!] run recon-subs / recon-alive first"; exit 1; }
+
+# naabu wants bare hosts: strip scheme, path and any :port suffix.
+sed -E 's#^[a-z]+://##; s#/.*$##; s#:[0-9]+$##' "$src" | sort -u > "$PORTS/hosts.txt"
+echo "[*] naabu port scan ($(wc -l < "$PORTS/hosts.txt") hosts)"
+
+# PORTSCAN_NMAP=1 → naabu pipes discovered ports straight into nmap -sV.
+if [[ "${PORTSCAN_NMAP:-0}" == "1" ]] && command -v nmap >/dev/null 2>&1; then
+    naabu -list "$PORTS/hosts.txt" -top-ports "${NAABU_TOP_PORTS:-1000}" -silent \
+        -nmap-cli "nmap -sV -Pn -oN $PORTS/nmap.txt" 2>/dev/null | sort -u > "$PORTS/ports.txt" || true
+    echo "[+] nmap services → $PORTS/nmap.txt"
+else
+    naabu -list "$PORTS/hosts.txt" -top-ports "${NAABU_TOP_PORTS:-1000}" -silent 2>/dev/null \
+        | sort -u > "$PORTS/ports.txt" || true
+fi
+echo "[+] $(wc -l < "$PORTS/ports.txt" 2>/dev/null || echo 0) host:port → $PORTS/ports.txt"

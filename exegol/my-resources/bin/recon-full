@@ -5,12 +5,17 @@ OUT="${WORKSPACE:-$PWD}/recon"
 mkdir -p "$OUT"
 
 echo "[*] full recon pipeline for $DOMAIN"
+# Core discovery steps: if these fail the rest has no input, so let them abort.
 recon-subs
 recon-alive
+# Enrichment + scanning steps: best-effort, a single failure must not kill the run.
 recon-fingerprint || echo "[i] fingerprint step skipped"
-recon-crawl
-recon-urls || echo "[i] urls step skipped"
-recon-loot || echo "[i] loot step skipped"
-recon-extract || echo "[i] extract step skipped"
-recon-sourcemaps || echo "[i] sourcemaps step skipped"
+recon-portscan    || echo "[i] portscan step skipped"
+recon-screenshot  || echo "[i] screenshot step skipped"
+recon-crawl       || echo "[i] crawl step skipped"
+recon-urls        || echo "[i] urls step skipped"
+recon-loot        || echo "[i] loot step skipped"
+recon-extract     || echo "[i] extract step skipped"
+recon-sourcemaps  || echo "[i] sourcemaps step skipped"
 echo "[+] done → $OUT"
+echo "[i] next: scan-nuclei  ·  scan-takeover  ·  audit-code"

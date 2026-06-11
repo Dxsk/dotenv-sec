@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${DOMAIN:?load an engagement first (DOMAIN unset) — use: dl <target>}"
+OUT="${WORKSPACE:-$PWD}/recon"
+SHOTS="$OUT/screenshots"
+mkdir -p "$SHOTS"
+
+# Screenshot every alive host (gowitness v3: `scan file`).
+command -v gowitness >/dev/null 2>&1 || { echo "[!] gowitness not found"; exit 1; }
+[[ -s "$OUT/subdomains_alive.txt" ]] || { echo "[!] run recon-alive first"; exit 1; }
+
+echo "[*] gowitness screenshots"
+gowitness scan file -f "$OUT/subdomains_alive.txt" -s "$SHOTS" \
+    -t "${GOWITNESS_THREADS:-20}" -T "${GOWITNESS_TIMEOUT:-30}" \
+    --write-csv --write-csv-file "$SHOTS/index.csv" >/dev/null 2>&1 || true
+
+n="$(find "$SHOTS" -maxdepth 1 -type f \( -name '*.jpeg' -o -name '*.png' \) 2>/dev/null | wc -l)"
+echo "[+] $n screenshots → $SHOTS (index: $SHOTS/index.csv)"

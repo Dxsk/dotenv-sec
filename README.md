@@ -130,22 +130,28 @@ The project ships a `my-resources` bundle deployed (merged) to `~/.exegol/my-res
 via `make exegol-setup` (also run by `make install`).
 
 The bundle includes:
-- **bin/** scripts: `recon-subs`, `recon-alive`, `recon-crawl`, `recon-loot`, `recon-sourcemaps`, `recon-full`, `dl`
+- **recon** scripts: `recon-subs`, `recon-alive`, `recon-fingerprint`, `recon-portscan`, `recon-screenshot`, `recon-crawl`, `recon-urls`, `recon-loot`, `recon-extract`, `recon-sourcemaps`, `recon-full`, `dl`
+- **scan** scripts: `scan-nuclei` (vuln scan), `scan-takeover` (dangling CNAME; subzy → nuclei fallback)
+- **audit** scripts: `audit-code` (trufflehog + gitleaks + semgrep + osv-scanner over the `code/` zone)
 - Shell aliases and preloaded history
+- `load_user_setup.sh`: idempotent installer for the tools the scripts need that the base image lacks (xnLinkFinder, waymore, sourcemapper, osv-scanner, …)
 
 ```bash
 make exegol-setup   # deploy/merge bundle to ~/.exegol/my-resources/
 ```
 
 Scripts run **inside** the Exegol container, driven by engagement env vars (`$DOMAIN`, `$WORKSPACE`).
-Example in a loaded engagement window:
+Typical flow in a loaded engagement window:
 
 ```bash
-recon-full
+recon-full       # discovery → portscan → screenshots → crawl → loot → JS extract
+scan-nuclei      # vulnerability scan of the alive hosts (routed through the proxy)
+scan-takeover    # subdomain takeover check
+audit-code       # white-box audit of recovered source / sourcemaps
 ```
 
 On first container start, Exegol auto-runs `/opt/my-resources/setup/load_user_setup.sh`.
-To trigger it manually:
+To trigger it manually (also installs missing tooling):
 
 ```bash
 dotsec exegol setup
