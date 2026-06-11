@@ -6,7 +6,7 @@ repos:
         name: shellcheck
         entry: shellcheck -x
         language: system
-        files: '^(bin/dotsec|bin/dotsec-build|lib/.*\.sh|tests/integration-smoke\.sh|tests/stubs/.*)$'
+        files: '^(bin/dotsec|bin/dotsec-build|lib/.*\.sh|tests/integration-smoke\.sh|tests/stubs/.*|\.github/scripts/.*\.sh)$'
       - id: bats
         name: bats
         entry: bats tests/
