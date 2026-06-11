@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+WS="${WORKSPACE:-$PWD}"
+CODE="${1:-$WS/code}"
+OUTD="$WS/scans/code"
+mkdir -p "$OUTD"
+
+# White-box audit of recovered source / sourcemaps / beautified JS / loot.
+[[ -d "$CODE" ]] || { echo "[!] no dir: $CODE"; exit 1; }
+[[ -n "$(find "$CODE" -type f -print -quit 2>/dev/null)" ]] \
+    || { echo "[!] $CODE is empty — run recon-sourcemaps / recon-loot first"; exit 1; }
+echo "[*] auditing $CODE"
+
+# 1. Verified secret scan (trufflehog tests creds against their live APIs).
+if command -v trufflehog >/dev/null 2>&1; then
+    trufflehog filesystem "$CODE" --results=verified,unknown --json \
+        > "$OUTD/secrets_trufflehog.json" 2>/dev/null || true
+    echo "[+] trufflehog → $OUTD/secrets_trufflehog.json"
+fi
+
+# 2. Regex secret scan (gitleaks). Pick the subcommand by capability: `dir`
+# on v8.19+, `detect` on older builds. A non-zero exit just means leaks found.
+if command -v gitleaks >/dev/null 2>&1; then
+    if gitleaks dir --help >/dev/null 2>&1; then
+        gitleaks dir "$CODE" -r "$OUTD/secrets_gitleaks.json" >/dev/null 2>&1 || true
+    else
+        gitleaks detect --no-git --source "$CODE" -r "$OUTD/secrets_gitleaks.json" >/dev/null 2>&1 || true
+    fi
+    echo "[+] gitleaks → $OUTD/secrets_gitleaks.json"
+fi
+
+# 3. SAST (semgrep, registry "auto" ruleset).
+if command -v semgrep >/dev/null 2>&1; then
+    semgrep scan --config auto --json -o "$OUTD/sast_semgrep.json" "$CODE" >/dev/null 2>&1 || true
+    echo "[+] semgrep → $OUTD/sast_semgrep.json"
+fi
+
+# 4. SCA / vulnerable dependencies (osv-scanner v2 over any lockfile/manifest).
+# Exit 1 = vulns found (or no lockfiles present), so swallow it.
+if command -v osv-scanner >/dev/null 2>&1; then
+    osv-scanner scan source --recursive "$CODE" --format json --output "$OUTD/sca_osv.json" >/dev/null 2>&1 || true
+    echo "[+] osv-scanner → $OUTD/sca_osv.json"
+fi
+
+echo "[+] audit done → $OUTD"
