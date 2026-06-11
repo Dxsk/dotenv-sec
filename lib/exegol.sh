@@ -36,6 +36,8 @@ __exegol_ensure_running() {
     # and leaves the container running detached (we connect via tmux instead).
     if command -v exegol >/dev/null 2>&1; then
         printf '%b\n' "  ${DIM}Creating Exegol container ${container} (first run can take a moment)...${RESET}"
+        # Host-side ACLs (set by dotsec at workspace creation) keep root-created
+        # files editable from the host, so --update-fs isn't needed here.
         exegol start "${target}" "${EXEGOL_IMAGE:-free}" -w "${ws}" --accept-eula </dev/null >/dev/null 2>&1 || true
     else
         printf '%b\n' "  ${DIM}exegol CLI not found — using docker run fallback...${RESET}"

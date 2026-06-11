@@ -21,6 +21,11 @@ cmd_new() {
             *)
                 if [[ -z "$target" ]]; then
                     target="$1"
+                elif [[ "$1" == "." || "$1" == ".." || "$1" == /* || "$1" == ./* || "$1" == ../* || "$1" == "~"/* ]]; then
+                    # A path-like 2nd positional sets WHERE to create the workspace:
+                    #   dotsec new swiss_post .        → ./swiss_post
+                    #   dotsec new swiss_post ~/bb/ywh → ~/bb/ywh/swiss_post
+                    ws_root="$1"
                 elif [[ -z "$domain" ]]; then
                     domain="$1"
                 fi
@@ -31,11 +36,14 @@ cmd_new() {
     __require_docker
 
     if [[ -z "$target" ]]; then
-        printf '%b\n' "${RED}[!] Usage: dotsec new [-w <workspace_root>] <target> [domain]${RESET}" >&2
+        printf '%b\n' "${RED}[!] Usage: dotsec new <target> [domain] [path|-w <root>]${RESET}" >&2
+        printf '%b\n' "  ${DIM}path: '.' or a dir → create the workspace there (e.g. dotsec new swiss_post .)${RESET}" >&2
         exit 1
     fi
 
     [[ -z "$domain" ]] && domain="${target}"
+    # Docker mounts (proxy, Exegol) need an absolute workspace root.
+    ws_root="$(realpath -m "$ws_root" 2>/dev/null || echo "$ws_root")"
     local ws="${ws_root}/${target}"
 
     printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
@@ -45,6 +53,11 @@ cmd_new() {
     # 1. Workspace structure
     printf '%b\n' "  ${DIM}[1/6]${RESET} ${DIM}Creating workspace...${RESET}"
     mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
+    # Default ACLs so files the root Exegol/proxy containers create in the
+    # workspace stay editable from the host (your user keeps rwx by inheritance).
+    if command -v setfacl >/dev/null 2>&1; then
+        setfacl -R -m "u:$(id -u):rwX" -m "d:u:$(id -u):rwX" "$ws" 2>/dev/null || true
+    fi
 
     # 2. Copy and fill .env
     printf '%b\n' "  ${DIM}[2/6]${RESET} ${DIM}Setting up dotenv...${RESET}"
