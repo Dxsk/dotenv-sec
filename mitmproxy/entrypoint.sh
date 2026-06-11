@@ -14,7 +14,7 @@ if [ -z "$WEB_PASS" ]; then
     fi
 fi
 
-echo "[*] mitmweb: http://0.0.0.0:8081  user=${WEB_USER}  pass=${WEB_PASS}"
+echo "[*] mitmweb: http://0.0.0.0:8081  password=${WEB_PASS}"
 echo "[*] proxy  : http://0.0.0.0:8080"
 
 exec mitmweb \
@@ -22,6 +22,6 @@ exec mitmweb \
     --mode regular@8080 \
     --web-host 0.0.0.0 \
     --web-port 8081 \
-    --set web_auth="${WEB_USER}:${WEB_PASS}" \
+    --set web_password="${WEB_PASS}" \
     --set save_stream_file=/data/flows/all.flow \
     --set stream_large_bodies=10m
