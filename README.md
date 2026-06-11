@@ -1,6 +1,13 @@
 # dotenv-sec
 
-**Pentest environment launcher**: one CLI to spawn your entire offensive security workspace: tmux sessions, MITM proxy, isolated Chromium, and Exegol integration.
+[![CI](https://img.shields.io/github/actions/workflow/status/Dxsk/dotenv-sec/ci.yml?branch=main&style=flat-square&label=CI&logo=github)](https://github.com/Dxsk/dotenv-sec/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Dxsk/dotenv-sec?style=flat-square&color=2EA043)](LICENSE)
+[![Bash](https://img.shields.io/badge/Bash-4EAA25?style=flat-square&logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Built for Exegol](https://img.shields.io/badge/Built_for-Exegol-FF6B35?style=flat-square)](https://exegol.com/)
+[![Security: Trivy](https://img.shields.io/badge/Security-Trivy-1904DA?style=flat-square&logo=aquasec&logoColor=white)](https://trivy.dev/)
+
+**Pentest environment launcher**: one CLI to spawn your entire offensive security workspace: tmux sessions, MITM proxy, isolated Chromium, Exegol integration, and a wired recon → scan → audit pipeline.
 
 ## Architecture
 
@@ -47,7 +54,7 @@ dotsec spawn
 | `dotsec browser [target]` | Launch Chromium routed through proxy |
 | `dotsec board up\|down\|reload\|status` | Homer dashboard at http://127.0.0.1:9997 |
 | `dotsec exegol exec\|shell` | Execute commands inside Exegol container |
-| `dotsec exegol setup` | Install uv + pnpm inside Exegol container |
+| `dotsec exegol setup` | Provision the recon/scan/audit toolchain inside Exegol (idempotent) |
 | `dotsec tmux attach\|create\|kill\|ls` | tmux session management |
 | `dotsec log <cmd...>` | Run command and log to `commands.log` |
 | `dotsec secrets <target>` | Show masked secret status for an engagement |
@@ -216,3 +223,9 @@ make smoke           # Docker integration smoke (requires make build)
 ## License
 
 MIT: see [LICENSE](LICENSE).
+
+## Support
+
+If `dotsec` saves you time on engagements, you can support the work:
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/dxsk)
