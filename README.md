@@ -7,7 +7,13 @@
 [![Built for Exegol](https://img.shields.io/badge/Built_for-Exegol-FF6B35?style=flat-square)](https://exegol.com/)
 [![Security: Trivy](https://img.shields.io/badge/Security-Trivy-1904DA?style=flat-square&logo=aquasec&logoColor=white)](https://trivy.dev/)
 
-**Pentest environment launcher**: one CLI to spawn your entire offensive security workspace: tmux sessions, MITM proxy, isolated Chromium, Exegol integration, and a wired recon → scan → audit pipeline.
+**Pentest environment launcher**: one CLI to spawn your entire offensive security workspace:
+
+- tmux sessions
+- MITM proxy
+- isolated Chromium
+- Exegol integration
+- a wired recon → scan → audit pipeline
 
 ## Architecture
 
@@ -31,34 +37,40 @@ dotsec new acme-corp example.com
 # Install
 make install
 
-# New engagement
+# New engagement: workspace + proxy + Exegol + tmux + proxied browser
 dotsec new acme-corp example.com
+
+# Source the engagement env into your current shell
 dotsec load acme-corp
 
-# Start dashboard + proxy + spawn tmux
+# Optional: dashboard, then attach the tmux session
 dotsec board up
-dotsec proxy up
-dotsec spawn
+dotsec tmux attach acme-corp
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `dotsec new <target> [domain]` | Create engagement workspace, tmux session, .env |
+| `dotsec new [-w <path>] <target> [domain]` | Init workspace + proxy + Exegol + tmux |
 | `dotsec load <target>` | Source engagement environment variables |
 | `dotsec unload` | Unset all engagement vars |
 | `dotsec list` | List all engagements under `/workspace/` |
-| `dotsec spawn [session]` | Instant 6-window pentest tmux session |
+| `dotsec spawn [session]` | Spawn 6-window pentest tmux in Exegol + attach |
 | `dotsec proxy up\|down\|status\|logs` | Manage mitmproxy Docker container |
 | `dotsec browser [target]` | Launch Chromium routed through proxy |
+| `dotsec listener up\|down\|logs\|status` | OOB HTTP callback server + ssh tunnel |
 | `dotsec board up\|down\|reload\|status` | Homer dashboard at http://127.0.0.1:9997 |
-| `dotsec exegol exec\|shell` | Execute commands inside Exegol container |
-| `dotsec exegol setup` | Provision the recon/scan/audit toolchain inside Exegol (idempotent) |
-| `dotsec tmux attach\|create\|kill\|ls` | tmux session management |
+| `dotsec secrets [target]` | Show masked secret status for an engagement |
+| `dotsec rotate [target] [type]` | Regenerate secrets (all\|token\|mitmweb\|ssh\|ca) |
+| `dotsec tmux attach\|create\|kill\|ls` | tmux sessions inside Exegol |
 | `dotsec log <cmd...>` | Run command and log to `commands.log` |
-| `dotsec secrets <target>` | Show masked secret status for an engagement |
-| `dotsec rotate <target> [type]` | Regenerate engagement secrets (all\|token\|mitmweb\|ssh\|ca) |
+| `dotsec archive [target]` | Archive workspace to tar.gz |
+| `dotsec rm <target> [--archive]` | Remove engagement (containers + workspace) |
+| `dotsec stop <target>` | Stop proxy + tmux for the engagement |
+| `dotsec restart <target>` | Restart proxy + Exegol + tmux |
+| `dotsec exegol exec\|shell\|setup` | Run commands / provision tooling inside Exegol |
+| `dotsec status [target]` | Overview: engagements, proxy/tmux, stats |
 | `dotsec info` | Show current engagement + global config status |
 
 ## Configuration
@@ -86,11 +98,11 @@ export EXEGOL_CONTAINER="exegol"
 
 ## Secrets
 
-Each `dotsec new` generates per-engagement secrets — idempotent, never committed — into the workspace:
+Each `dotsec new` generates per-engagement secrets (idempotent, never committed) into the workspace:
 
 - `.env.secrets` (chmod 600): `DOTSEC_SESSION_SECRET`, `DOTSEC_API_TOKEN`, `MITMWEB_PASS`
-- `keys/id_ed25519` — ephemeral Ed25519 SSH key (600), `keys/id_ed25519.pub` (644)
-- CA certificate — generated on first `proxy up` into `proxy/certs/`
+- `keys/id_ed25519`: ephemeral Ed25519 SSH key (600), `keys/id_ed25519.pub` (644)
+- CA certificate: generated on first `proxy up` into `proxy/certs/`
 
 ```bash
 dotsec secrets acme-corp          # show masked status (never prints values)
@@ -219,6 +231,16 @@ make test            # bats test suite
 make lint            # shellcheck all bash
 make smoke           # Docker integration smoke (requires make build)
 ```
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+- **Feature / tool request**: [open an issue](https://github.com/Dxsk/dotenv-sec/issues/new?labels=enhancement) describing the tool or stage you'd like wired into the pipeline.
+- **Bug report**: [open an issue](https://github.com/Dxsk/dotenv-sec/issues/new?labels=bug) with your Exegol image, the exact command, and the output.
+- **Question / anything else**: [open an issue](https://github.com/Dxsk/dotenv-sec/issues/new?labels=question).
+
+For code: fork, branch (`feat/…` or `fix/…`), keep it shellcheck-clean with tests green (see [Development](#development)), then open a PR.
 
 ## License
 
