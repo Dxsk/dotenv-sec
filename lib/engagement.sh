@@ -55,7 +55,7 @@ cmd_new() {
 
     # 1. Workspace structure (code/ = white-box / source-map / JS audit zone)
     printf '%b\n' "  ${DIM}[1/8]${RESET} ${DIM}Creating workspace...${RESET}"
-    mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},code/{recovered,sources,sourcemaps,js,beautified},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
+    mkdir -p "${ws}"/{recon/{passive,active,screenshots},scans/{ports,web,vuln,code},code/{recovered,sources,sourcemaps,js,beautified},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
     # Default ACLs so files the root Exegol/proxy containers create in the
     # workspace stay editable from the host (your user keeps rwx by inheritance).
     if command -v setfacl >/dev/null 2>&1; then
