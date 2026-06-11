@@ -21,6 +21,11 @@ cmd_new() {
             *)
                 if [[ -z "$target" ]]; then
                     target="$1"
+                elif [[ "$1" == "." || "$1" == ".." || "$1" == /* || "$1" == ./* || "$1" == ../* || "$1" == "~"/* ]]; then
+                    # A path-like 2nd positional sets WHERE to create the workspace:
+                    #   dotsec new swiss_post .        → ./swiss_post
+                    #   dotsec new swiss_post ~/bb/ywh → ~/bb/ywh/swiss_post
+                    ws_root="$1"
                 elif [[ -z "$domain" ]]; then
                     domain="$1"
                 fi
@@ -31,11 +36,14 @@ cmd_new() {
     __require_docker
 
     if [[ -z "$target" ]]; then
-        printf '%b\n' "${RED}[!] Usage: dotsec new [-w <workspace_root>] <target> [domain]${RESET}" >&2
+        printf '%b\n' "${RED}[!] Usage: dotsec new <target> [domain] [path|-w <root>]${RESET}" >&2
+        printf '%b\n' "  ${DIM}path: '.' or a dir → create the workspace there (e.g. dotsec new swiss_post .)${RESET}" >&2
         exit 1
     fi
 
     [[ -z "$domain" ]] && domain="${target}"
+    # Docker mounts (proxy, Exegol) need an absolute workspace root.
+    ws_root="$(realpath -m "$ws_root" 2>/dev/null || echo "$ws_root")"
     local ws="${ws_root}/${target}"
 
     printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
@@ -45,6 +53,11 @@ cmd_new() {
     # 1. Workspace structure
     printf '%b\n' "  ${DIM}[1/6]${RESET} ${DIM}Creating workspace...${RESET}"
     mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
+    # Default ACLs so files the root Exegol/proxy containers create in the
+    # workspace stay editable from the host (your user keeps rwx by inheritance).
+    if command -v setfacl >/dev/null 2>&1; then
+        setfacl -R -m "u:$(id -u):rwX" -m "d:u:$(id -u):rwX" "$ws" 2>/dev/null || true
+    fi
 
     # 2. Copy and fill .env
     printf '%b\n' "  ${DIM}[2/6]${RESET} ${DIM}Setting up dotenv...${RESET}"
@@ -86,14 +99,14 @@ DOC
     printf '%b\n' "  ${DIM}[4/6]${RESET} ${DIM}Starting mitmproxy...${RESET}"
     DOTSEC_WORKSPACE_ROOT="${ws_root}" TARGET="${target}" proxy_up
 
-    # 5. Ensure Exegol is running with workspace mounted
-    printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Ensuring Exegol container...${RESET}"
-    __exegol_ensure_running "$target" "$ws_root"
+    # 5. Create the per-engagement Exegol container (workspace mounted, my-resources)
+    printf '%b\n' "  ${DIM}[5/6]${RESET} ${DIM}Creating Exegol container...${RESET}"
+    __exegol_ensure_running "$target" "$ws" || true
 
-    # 6. Spawn tmux inside Exegol
+    # 6. Spawn tmux inside Exegol (engagement workspace is mounted at /workspace)
     printf '%b\n' "  ${DIM}[6/6]${RESET} ${DIM}Creating tmux session in Exegol...${RESET}"
-    local container="${EXEGOL_CONTAINER:-exegol}"
-    local load_cmd="source /workspace/${target}/.env; [ -f /workspace/${target}/.env.secrets ] && source /workspace/${target}/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
+    local container; container="$(__exegol_name "$target")"
+    local load_cmd="source /workspace/.env; [ -f /workspace/.env.secrets ] && source /workspace/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     echo ""
@@ -206,7 +219,7 @@ cmd_archive() {
         exit 1
     fi
 
-    local container="${EXEGOL_CONTAINER:-exegol}"
+    local container; container="$(__exegol_name "$target")"
     local timestamp
     timestamp=$(date '+%Y%m%d-%H%M%S')
     local archive_name="${target}-${timestamp}.tar.gz"
@@ -288,9 +301,8 @@ cmd_rm() {
 
     [[ $do_archive -eq 1 ]] && cmd_archive "$target"
 
-    local container="${EXEGOL_CONTAINER:-exegol}"
-    docker rm -f "mitmproxy-${target}" "oob-${target}" >/dev/null 2>&1 || true
-    docker exec "$container" tmux kill-session -t "$target" >/dev/null 2>&1 || true
+    # Remove the per-engagement containers (never an externally forced one)
+    docker rm -f "mitmproxy-${target}" "oob-${target}" "exegol-${target}" >/dev/null 2>&1 || true
 
     rm -rf "$ws" 2>/dev/null || true
     if [[ -d "$ws" ]]; then
@@ -313,7 +325,7 @@ cmd_stop() {
         printf '%b\n' "${RED}[!] Usage: dotsec stop <target>${RESET}" >&2
         exit 1
     fi
-    local container="${EXEGOL_CONTAINER:-exegol}"
+    local container="exegol-${target}"
 
     printf '%b\n' "${BOLD}${YELLOW}Stopping${RESET} ${CYAN}${target}${RESET}..."
 
@@ -325,12 +337,12 @@ cmd_stop() {
         printf '%b\n' "  ${DIM}Proxy: already stopped${RESET}"
     fi
 
-    # Kill tmux session in Exegol
-    if docker exec "$container" tmux has-session -t "$target" 2>/dev/null; then
-        printf '%b\n' "  ${DIM}Tmux session...${RESET}"
-        docker exec "$container" tmux kill-session -t "$target" 2>/dev/null || true
+    # Stop the Exegol container
+    if docker ps --filter "name=^${container}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+        printf '%b\n' "  ${DIM}Exegol container...${RESET}"
+        docker stop "$container" >/dev/null 2>&1 || true
     else
-        printf '%b\n' "  ${DIM}Tmux: no session${RESET}"
+        printf '%b\n' "  ${DIM}Exegol: not running${RESET}"
     fi
 
     # Stop dashboard
@@ -352,7 +364,7 @@ cmd_restart() {
         exit 1
     fi
     local ws="${WORKSPACE_ROOT:-/workspace}/${target}"
-    local container="${EXEGOL_CONTAINER:-exegol}"
+    local container; container="$(__exegol_name "$target")"
 
     if [[ ! -d "$ws" ]] || [[ ! -f "${ws}/.env" ]]; then
         printf '%b\n' "${RED}[!] Engagement not found: ${target}${RESET}" >&2
@@ -375,11 +387,11 @@ cmd_restart() {
 
     # Ensure Exegol
     printf '%b\n' "  ${DIM}Exegol...${RESET}"
-    __exegol_ensure_running "$target"
+    __exegol_ensure_running "$target" "$ws" || true
 
     # Recreate tmux session
     printf '%b\n' "  ${DIM}Tmux session...${RESET}"
-    local load_cmd="source /workspace/${target}/.env; [ -f /workspace/${target}/.env.secrets ] && source /workspace/${target}/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
+    local load_cmd="source /workspace/.env; [ -f /workspace/.env.secrets ] && source /workspace/.env.secrets; export TARGET=${target} DOMAIN=${domain}; clear"
     __exegol_tmux_spawn "$container" "$target" "$load_cmd"
 
     printf '%b\n' "  ${GREEN}Environment restarted${RESET}"

@@ -2,12 +2,11 @@
 # ─── lib/status.sh ─── engagement status overview ──
 
 __status_global() {
-    local exegol="${EXEGOL_CONTAINER:-exegol}"
-    local ex_state="stopped" db_state="down"
-    docker ps --filter "name=^${exegol}$" --format '{{.Names}}' 2>/dev/null | grep -q . && ex_state="running"
+    local db_state="down" ex_count
+    ex_count=$(docker ps --filter "name=exegol-" --format '{{.Names}}' 2>/dev/null | grep -c . || true)
     docker ps --filter "name=dotsec-homer" --format '{{.Names}}' 2>/dev/null | grep -q . \
         && db_state="up (127.0.0.1:${HOMER_PORT:-9997})"
-    printf '%b\n' "${BOLD}${CYAN}Global${RESET}   ${DIM}Exegol:${RESET} ${ex_state}   ${DIM}Dashboard:${RESET} ${db_state}"
+    printf '%b\n' "${BOLD}${CYAN}Global${RESET}   ${DIM}Exegol:${RESET} ${ex_count:-0} running   ${DIM}Dashboard:${RESET} ${db_state}"
     return 0
 }
 
@@ -22,7 +21,7 @@ __status_engagement() {
         proxy="up    127.0.0.1:${pport} / ${wport}"
     fi
     tmuxs="—"
-    exegol="${EXEGOL_CONTAINER:-exegol}"
+    exegol="$(__exegol_name "$target")"
     if docker ps --filter "name=^${exegol}$" --format '{{.Names}}' 2>/dev/null | grep -q .; then
         docker exec "$exegol" tmux has-session -t "$target" 2>/dev/null && tmuxs="session present"
     fi
