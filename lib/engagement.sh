@@ -336,7 +336,7 @@ cmd_rm() {
         # leftover root-owned files (proxy certs written by the root container)
         docker run --rm -v "$(dirname "$real_ws"):/ws" alpine rm -rf "/ws/$(basename "$real_ws")" >/dev/null 2>&1 || true
     fi
-    [[ -n "$link" ]] && rm -f "$link" 2>/dev/null || true
+    if [[ -n "$link" ]]; then rm -f "$link" 2>/dev/null || true; fi
     if [[ -d "$real_ws" ]]; then
         printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}some files remain (root-owned) — run:${RESET} ${YELLOW}sudo rm -rf ${real_ws}${RESET}" >&2
     else
