@@ -53,13 +53,21 @@ cmd_new() {
     printf '%b\n' "  ${BOLD}${CYAN}New Engagement${RESET}  ${GREEN}▸${RESET} ${BOLD}${target}${RESET}  ${DIM}${domain}${RESET}"
     printf '%b\n' "${BOLD}${GREEN}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${RESET}"
 
-    # 1. Workspace structure
+    # 1. Workspace structure (code/ = white-box / source-map / JS audit zone)
     printf '%b\n' "  ${DIM}[1/8]${RESET} ${DIM}Creating workspace...${RESET}"
-    mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
+    mkdir -p "${ws}"/{recon/{passive,active},scans/{ports,web,vuln},code/{sources,sourcemaps,js,beautified},exploits/{pocs,payloads},loot/{credentials,data},logs,report/assets,replays/{recon,scan,exploit,post,report,monitor},keys}
     # Default ACLs so files the root Exegol/proxy containers create in the
     # workspace stay editable from the host (your user keeps rwx by inheritance).
     if command -v setfacl >/dev/null 2>&1; then
         setfacl -R -m "u:$(id -u):rwX" -m "d:u:$(id -u):rwX" "$ws" 2>/dev/null || true
+    fi
+    # Created outside the default root? Symlink it back so every command
+    # (board, browser, status, rm) finds it under WORKSPACE_ROOT/<target>.
+    local default_ws; default_ws="$(realpath -m "${WORKSPACE_ROOT}/${target}" 2>/dev/null || echo "${WORKSPACE_ROOT}/${target}")"
+    if [[ "$ws" != "$default_ws" ]]; then
+        mkdir -p "${WORKSPACE_ROOT}"
+        ln -sfn "$ws" "${WORKSPACE_ROOT}/${target}"
+        printf '%b\n' "  ${DIM}      ↳ linked ${WORKSPACE_ROOT}/${target} → ${ws}${RESET}"
     fi
 
     # 2. Copy and fill .env
@@ -319,13 +327,18 @@ cmd_rm() {
     # Remove the per-engagement containers (never an externally forced one)
     docker rm -f "mitmproxy-${target}" "oob-${target}" "exegol-${target}" >/dev/null 2>&1 || true
 
-    rm -rf "$ws" 2>/dev/null || true
-    if [[ -d "$ws" ]]; then
+    # Resolve a symlinked workspace to its real (custom) location for deletion.
+    local real_ws="$ws" link=""
+    if [[ -L "$ws" ]]; then real_ws="$(realpath "$ws" 2>/dev/null || echo "$ws")"; link="$ws"; fi
+
+    rm -rf "$real_ws" 2>/dev/null || true
+    if [[ -d "$real_ws" ]]; then
         # leftover root-owned files (proxy certs written by the root container)
-        docker run --rm -v "${WORKSPACE_ROOT:-/workspace}:/ws" alpine rm -rf "/ws/${target}" >/dev/null 2>&1 || true
+        docker run --rm -v "$(dirname "$real_ws"):/ws" alpine rm -rf "/ws/$(basename "$real_ws")" >/dev/null 2>&1 || true
     fi
-    if [[ -d "$ws" ]]; then
-        printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}some files remain (root-owned) — run:${RESET} ${YELLOW}sudo rm -rf ${ws}${RESET}" >&2
+    [[ -n "$link" ]] && rm -f "$link" 2>/dev/null || true
+    if [[ -d "$real_ws" ]]; then
+        printf '%b\n' "${YELLOW}[!]${RESET} ${DIM}some files remain (root-owned) — run:${RESET} ${YELLOW}sudo rm -rf ${real_ws}${RESET}" >&2
     else
         printf '%b\n' "  ${GREEN}removed${RESET} ${CYAN}${target}${RESET}"
     fi
