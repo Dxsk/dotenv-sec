@@ -1,12 +1,17 @@
 : 0:0;subfinder -d $DOMAIN -all -recursive > subdomains.txt
-: 0:0;cat subdomains.txt | httpx-toolkit -mc 200 -l subdomains.txt -ports 443,80,8080,8000,8888 -threads 200 > subdomains_alive.txt
+: 0:0;cat subdomains.txt | httpx -mc 200 -l subdomains.txt -ports 443,80,8080,8000,8888 -threads 200 > subdomains_alive.txt
 : 0:0;katana -u subdomains_alive.txt -d 5 -ps -pss waybackarchive,commoncrawl,alienvault -kf -jc -ef woff,css,png,svg,jpg,woff2,jpeg,gif -o allurls.txt
 : 0:0;cat allurls.txt | grep -E "\.js($|\?)" | sort -u > js.txt
 : 0:0;cat subdomains_alive.txt | gau > params.txt
-: 0:0;cat js.txt | while read url; do python3 ~/tools/secretfinder/SecretFinder.py -i $url -o cli; done >> secrets.txt
+: 0:0;xnLinkFinder -i js.txt -sf "$DOMAIN" -o endpoints.txt
+: 0:0;trufflehog filesystem code/ --results=verified,unknown
 : 0:0;dirsearch -u https://$DOMAIN -e conf,config,bak,old,sql,json,js,zip,tar.gz
 : 0:0;feroxbuster -u https://$DOMAIN -w /usr/share/seclists/Discovery/Web-Content/big.txt -C 404,403,429,401,405,302,400,301 -t 50
 : 0:0;nuclei -l subdomains_alive.txt -t ~/nuclei-templates/http/cves -severity critical,high,medium -c 100
 : 0:0;ffuf -w /usr/share/seclists/Discovery/Web-Content/big.txt -u https://$DOMAIN/FUZZ -mc 200,403 -fs 0
 : 0:0;sqlmap -u "https://$DOMAIN/?id=1" --level=5 --risk=3 -p id --dbs
 : 0:0;subzy run --targets subdomains.txt --concurrency 100 --hide_fails --verify_ssl
+: 0:0;naabu -list subdomains_alive.txt -top-ports 1000 -silent
+: 0:0;gowitness scan file -f subdomains_alive.txt --screenshot-path recon/screenshots --write-none
+: 0:0;osv-scanner scan --recursive code/
+: 0:0;semgrep --config auto code/

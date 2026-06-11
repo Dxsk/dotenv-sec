@@ -1,5 +1,12 @@
 # dotsec recon aliases (env-driven: needs $DOMAIN / an engagement loaded)
 alias dl='source /opt/my-resources/bin/dl'
 alias subs='subfinder -d "$DOMAIN" -all -recursive'
-alias alive='httpx-toolkit -mc 200 -ports 443,80,8080,8000,8888 -threads 200'
+alias alive='httpx -mc 200 -ports 443,80,8080,8000,8888 -threads 200'
 alias crawl='katana -d 5 -jc -kf -ps -pss waybackarchive,commoncrawl,alienvault'
+
+# dotsec phase shortcuts (each wraps a /opt/my-resources/bin script)
+alias portscan='recon-portscan'
+alias shots='recon-screenshot'
+alias scan='scan-nuclei'
+alias takeover='scan-takeover'
+alias audit='audit-code'
