@@ -39,3 +39,16 @@ def test_no_inputs_is_clean(tmp_path):
     r = _run(tmp_path)
     assert r.returncode == 0
     assert json.loads((tmp_path / "scans/code/hotspots.json").read_text()) == []
+
+def test_astgrep_sink_included(tmp_path):
+    outd = tmp_path / "scans" / "code"; outd.mkdir(parents=True)
+    (outd / "sinks_astgrep.json").write_text(json.dumps([
+        {"ruleId": "js-eval", "severity": "warning", "file": "app.js",
+         "range": {"start": {"line": 0, "column": 0}}, "message": "dynamic eval"}
+    ]))
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stderr
+    ranked = json.loads((outd / "hotspots.json").read_text())
+    assert ranked[0]["rule"] == "js-eval"
+    assert ranked[0]["category"] == "sink"
+    assert ranked[0]["line"] == 1  # ast-grep 0-indexed -> 1-indexed

@@ -66,12 +66,35 @@ def from_trufflehog(records: list[dict]) -> list[dict]:
     return findings
 
 
+ASTGREP_SCORE = {"error": 4, "warning": 3, "info": 1, "hint": 1}
+
+
+def from_astgrep(data: object) -> list[dict]:
+    """Flatten an ast-grep --json report (array of matches) into scored sinks.
+    ast-grep reports 0-indexed line numbers, so the line is shifted to 1-indexed."""
+    findings: list[dict] = []
+    matches = data if isinstance(data, list) else []
+    for m in matches:
+        sev = str(m.get("severity", "warning")).lower()
+        line = m.get("range", {}).get("start", {}).get("line", 0)
+        findings.append({
+            "category": "sink",
+            "rule": m.get("ruleId", "?"),
+            "file": m.get("file", "?"),
+            "line": int(line) + 1,
+            "message": str(m.get("message", ""))[:200],
+            "score": ASTGREP_SCORE.get(sev, 3),
+        })
+    return findings
+
+
 def main() -> int:
     outd = Path(os.environ.get("WORKSPACE", ".")) / "scans" / "code"
     findings: list[dict] = []
     findings += from_semgrep(load_json(outd / "sinks.json"), "sink")
     findings += from_semgrep(load_json(outd / "endpoints.json"), "endpoint")
     findings += from_trufflehog(load_jsonl(outd / "secrets_trufflehog.json"))
+    findings += from_astgrep(load_json(outd / "sinks_astgrep.json"))
 
     findings.sort(key=lambda f: (f["score"], f["category"]), reverse=True)
 
