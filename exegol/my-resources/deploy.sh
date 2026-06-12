@@ -30,6 +30,11 @@ done
 [[ -f "${SRC}/bin/dl" ]] && cp "${SRC}/bin/dl" "${DEST}/bin/"
 chmod +x "${DEST}/bin/"* 2>/dev/null || true
 
+if [[ -d "${SRC}/audit-rules" ]]; then
+    mkdir -p "${DEST}/audit-rules"
+    cp -r "${SRC}/audit-rules/." "${DEST}/audit-rules/"
+fi
+
 merge_block "${DEST}/setup/zsh/aliases"          "${SRC}/fragments/aliases.dotsec"
 merge_block "${DEST}/setup/zsh/history"          "${SRC}/fragments/history.dotsec"
 merge_block "${DEST}/setup/load_user_setup.sh"   "${SRC}/fragments/load_user_setup.dotsec.sh"

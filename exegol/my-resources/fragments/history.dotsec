@@ -15,3 +15,6 @@
 : 0:0;gowitness scan file -f subdomains_alive.txt --screenshot-path recon/screenshots --write-none
 : 0:0;osv-scanner scan --recursive code/
 : 0:0;semgrep --config auto code/
+: 0:0;audit-full code/
+: 0:0;audit-sinks code/ && audit-hotspots
+: 0:0;semgrep scan --config p/security-audit --json code/
