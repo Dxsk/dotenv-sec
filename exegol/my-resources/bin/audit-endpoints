@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+WS="${WORKSPACE:-$PWD}"
+CODE="${1:-$WS/code}"
+OUTD="$WS/scans/code"
+RULES="${MYRES:-/opt/my-resources}/audit-rules"
+mkdir -p "$OUTD"
+
+# Attack-surface extraction: backend routes + frontend API calls.
+[[ -d "$CODE" ]] || { echo "[!] no dir: $CODE"; exit 1; }
+[[ -n "$(find "$CODE" -type f -print -quit 2>/dev/null)" ]] \
+    || { echo "[!] $CODE is empty"; exit 1; }
+echo "[*] endpoint scan $CODE"
+
+# 1. Backend routes via semgrep custom rules.
+if command -v semgrep >/dev/null 2>&1 && [[ -f "$RULES/endpoints.yml" ]]; then
+    semgrep scan --config "$RULES/endpoints.yml" \
+        --json -o "$OUTD/endpoints.json" "$CODE" >/dev/null 2>&1 || true
+fi
+
+# 2. Frontend: endpoints referenced from JS + raw URL/fetch/axios literals.
+: > "$OUTD/endpoints.txt"
+if command -v xnLinkFinder >/dev/null 2>&1; then
+    xnLinkFinder -i "$CODE" -sf "${DOMAIN:-}" -o "$OUTD/_xn.txt" >/dev/null 2>&1 || true
+    [[ -f "$OUTD/_xn.txt" ]] && cat "$OUTD/_xn.txt" >> "$OUTD/endpoints.txt" && rm -f "$OUTD/_xn.txt"
+fi
+grep -rhoEi "https?://[^\"'\` )]+|fetch\(|axios\.[a-z]+\(|XMLHttpRequest" "$CODE" 2>/dev/null \
+    | sort -u >> "$OUTD/endpoints.txt" || true
+sort -u "$OUTD/endpoints.txt" -o "$OUTD/endpoints.txt" 2>/dev/null || true
+echo "[+] endpoints -> $OUTD/endpoints.json (+ endpoints.txt)"

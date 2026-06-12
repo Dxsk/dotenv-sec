@@ -19,3 +19,11 @@ teardown() { rm -rf "$WS"; }
     run "$BIN/audit-sinks"
     [ "$status" -ne 0 ]
 }
+
+@test "audit-endpoints writes endpoints.json from semgrep" {
+    cp "${BATS_TEST_DIRNAME}/../exegol/my-resources/audit-rules/endpoints.yml" /dev/null 2>/dev/null || true
+    export MYRES="${BATS_TEST_DIRNAME}/../exegol/my-resources"
+    run "$BIN/audit-endpoints"
+    [ "$status" -eq 0 ]
+    [ -f "$WS/scans/code/endpoints.json" ]
+}
