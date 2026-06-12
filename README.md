@@ -151,7 +151,7 @@ via `make exegol-setup` (also run by `make install`).
 The bundle includes:
 - **recon** scripts: `recon-subs`, `recon-alive`, `recon-fingerprint`, `recon-portscan`, `recon-screenshot`, `recon-crawl`, `recon-urls`, `recon-loot`, `recon-extract`, `recon-sourcemaps`, `recon-full`, `dl`
 - **scan** scripts: `scan-nuclei` (vuln scan), `scan-takeover` (dangling CNAME; subzy → nuclei fallback)
-- **audit** scripts: `audit-code` (trufflehog + gitleaks + semgrep + osv-scanner over the `code/` zone)
+- **audit** scripts: `audit-code` (secrets/SAST/SCA), `audit-sinks` (dangerous functions), `audit-endpoints` (routes + JS surface), `audit-hotspots` (ranked candidates), `audit-full`
 - Shell aliases and preloaded history
 - `load_user_setup.sh`: idempotent installer for the tools the scripts need that the base image lacks (xnLinkFinder, waymore, sourcemapper, osv-scanner, …)
 
@@ -167,6 +167,7 @@ recon-full       # discovery → portscan → screenshots → crawl → loot →
 scan-nuclei      # vulnerability scan of the alive hosts (routed through the proxy)
 scan-takeover    # subdomain takeover check
 audit-code       # white-box audit of recovered source / sourcemaps
+audit-full       # full white-box pass: secrets + SCA + sinks + endpoints + ranked hotspots
 ```
 
 On first container start, Exegol auto-runs `/opt/my-resources/setup/load_user_setup.sh`.
