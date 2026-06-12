@@ -7,6 +7,7 @@ repos:
         entry: shellcheck -x
         language: system
         files: '^(bin/dotsec|bin/dotsec-build|lib/.*\.sh|tests/integration-smoke\.sh|tests/stubs/.*|\.github/scripts/.*\.sh|exegol/my-resources/bin/[^/]+|exegol/my-resources/deploy\.sh)$'
+        exclude: '^exegol/my-resources/bin/audit-hotspots$'
       - id: bats
         name: bats
         entry: bats tests/

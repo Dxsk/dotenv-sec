@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Aggregate the audit JSON artifacts in scans/code/ into a ranked hotspots
+report (hotspots.json + hotspots.md). Pure stdlib; reads whatever is present."""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+SEVERITY_SCORE = {"ERROR": 4, "WARNING": 3, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "INFO": 1}
+
+
+def load_json(path: Path) -> object | None:
+    """Return parsed JSON, or None if missing/unparseable."""
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return None
+
+
+def load_jsonl(path: Path) -> list[dict]:
+    """Return a list of objects from a JSON-lines file (trufflehog format)."""
+    out: list[dict] = []
+    try:
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line:
+                out.append(json.loads(line))
+    except Exception:
+        pass
+    return out
+
+
+def from_semgrep(data: object, category: str) -> list[dict]:
+    """Flatten a semgrep JSON report into scored findings."""
+    findings: list[dict] = []
+    results = data.get("results", []) if isinstance(data, dict) else []
+    for r in results:
+        extra = r.get("extra", {})
+        sev = str(extra.get("severity", "INFO")).upper()
+        findings.append({
+            "category": category,
+            "rule": r.get("check_id", "?"),
+            "file": r.get("path", "?"),
+            "line": r.get("start", {}).get("line", 0),
+            "message": str(extra.get("message", ""))[:200],
+            "score": SEVERITY_SCORE.get(sev, 1),
+        })
+    return findings
+
+
+def from_trufflehog(records: list[dict]) -> list[dict]:
+    """Verified secrets rank highest; unverified are still surfaced."""
+    findings: list[dict] = []
+    for rec in records:
+        verified = bool(rec.get("Verified"))
+        meta = rec.get("SourceMetadata", {}).get("Data", {}).get("Filesystem", {})
+        findings.append({
+            "category": "secret-verified" if verified else "secret",
+            "rule": rec.get("DetectorName", "secret"),
+            "file": meta.get("file", "?"),
+            "line": meta.get("line", 0),
+            "message": "verified live credential" if verified else "potential secret",
+            "score": 5 if verified else 2,
+        })
+    return findings
+
+
+def main() -> int:
+    outd = Path(os.environ.get("WORKSPACE", ".")) / "scans" / "code"
+    findings: list[dict] = []
+    findings += from_semgrep(load_json(outd / "sinks.json"), "sink")
+    findings += from_semgrep(load_json(outd / "endpoints.json"), "endpoint")
+    findings += from_trufflehog(load_jsonl(outd / "secrets_trufflehog.json"))
+
+    findings.sort(key=lambda f: (f["score"], f["category"]), reverse=True)
+
+    outd.mkdir(parents=True, exist_ok=True)
+    (outd / "hotspots.json").write_text(json.dumps(findings, indent=2))
+
+    lines = ["# Code audit hotspots", "", f"{len(findings)} candidates (ranked).", ""]
+    lines += ["| score | category | rule | file:line | note |",
+              "|------:|----------|------|-----------|------|"]
+    for f in findings:
+        lines.append(f"| {f['score']} | {f['category']} | `{f['rule']}` | "
+                     f"`{f['file']}:{f['line']}` | {f['message']} |")
+    (outd / "hotspots.md").write_text("\n".join(lines) + "\n")
+    print(f"[+] {len(findings)} hotspots -> {outd}/hotspots.json (+ hotspots.md)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -131,7 +131,7 @@ test:  ## Run bats tests
 	@bats tests/
 
 lint:  ## shellcheck all bash (uses .shellcheckrc)
-	@shellcheck -x bin/dotsec bin/dotsec-build lib/*.sh tests/integration-smoke.sh exegol/my-resources/bin/* exegol/my-resources/deploy.sh && echo "[+] shellcheck clean"
+	@shellcheck -x bin/dotsec bin/dotsec-build lib/*.sh tests/integration-smoke.sh $$(ls exegol/my-resources/bin/* | grep -v '/audit-hotspots$$') exegol/my-resources/deploy.sh && echo "[+] shellcheck clean"
 
 smoke:  ## Docker integration smoke (requires docker + make build)
 	@bash tests/integration-smoke.sh
