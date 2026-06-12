@@ -104,9 +104,13 @@ def main() -> int:
     lines = ["# Code audit hotspots", "", f"{len(findings)} candidates (ranked).", ""]
     lines += ["| score | category | rule | file:line | note |",
               "|------:|----------|------|-----------|------|"]
+    def _md(value: object) -> str:
+        """Escape a value so it can't break a markdown table cell."""
+        return str(value).replace("|", "\\|").replace("\n", " ").replace("`", "'")
+
     for f in findings:
-        lines.append(f"| {f['score']} | {f['category']} | `{f['rule']}` | "
-                     f"`{f['file']}:{f['line']}` | {f['message']} |")
+        lines.append(f"| {f['score']} | {f['category']} | `{_md(f['rule'])}` | "
+                     f"`{_md(f['file'])}:{f['line']}` | {_md(f['message'])} |")
     (outd / "hotspots.md").write_text("\n".join(lines) + "\n")
     print(f"[+] {len(findings)} hotspots -> {outd}/hotspots.json (+ hotspots.md)")
     return 0

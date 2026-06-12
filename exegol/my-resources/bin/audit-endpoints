@@ -27,4 +27,8 @@ fi
 grep -rhoEi "https?://[^\"'\` )]+|fetch\(|axios\.[a-z]+\(|XMLHttpRequest" "$CODE" 2>/dev/null \
     | sort -u >> "$OUTD/endpoints.txt" || true
 sort -u "$OUTD/endpoints.txt" -o "$OUTD/endpoints.txt" 2>/dev/null || true
-echo "[+] endpoints -> $OUTD/endpoints.json (+ endpoints.txt)"
+if [[ -f "$OUTD/endpoints.json" ]]; then
+    echo "[+] endpoints -> $OUTD/endpoints.json (+ endpoints.txt)"
+else
+    echo "[+] endpoints -> $OUTD/endpoints.txt (semgrep absent)"
+fi

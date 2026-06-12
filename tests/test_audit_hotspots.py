@@ -52,3 +52,16 @@ def test_astgrep_sink_included(tmp_path):
     assert ranked[0]["rule"] == "js-eval"
     assert ranked[0]["category"] == "sink"
     assert ranked[0]["line"] == 1  # ast-grep 0-indexed -> 1-indexed
+
+def test_markdown_escapes_pipe_and_newline(tmp_path):
+    outd = tmp_path / "scans" / "code"; outd.mkdir(parents=True)
+    (outd / "sinks.json").write_text(json.dumps({"results": [
+        {"check_id": "r", "path": "a.js", "start": {"line": 1},
+         "extra": {"severity": "ERROR", "message": "bad | line\nbreak"}}]}))
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stderr
+    md = (outd / "hotspots.md").read_text()
+    data_rows = [ln for ln in md.splitlines()
+                 if ln.startswith("| ") and "score |" not in ln and "---" not in ln]
+    assert len(data_rows) == 1  # a newline in a field must not split the row
+    assert "\\|" in md          # the literal pipe must be escaped

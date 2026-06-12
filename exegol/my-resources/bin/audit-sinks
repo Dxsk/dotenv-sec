@@ -34,4 +34,8 @@ if command -v weggli >/dev/null 2>&1; then
         weggli "{ $pat }" "$CODE" 2>/dev/null >> "$OUTD/sinks.txt" || true
     done
 fi
-echo "[+] sinks -> $OUTD/sinks.json (+ sinks.txt)"
+if [[ -f "$OUTD/sinks.json" ]]; then
+    echo "[+] sinks -> $OUTD/sinks.json (+ sinks.txt)"
+else
+    echo "[+] sinks -> $OUTD/sinks.txt (semgrep absent)"
+fi
