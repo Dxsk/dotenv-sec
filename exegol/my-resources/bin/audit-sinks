@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+WS="${WORKSPACE:-$PWD}"
+CODE="${1:-$WS/code}"
+OUTD="$WS/scans/code"
+RULES="${MYRES:-/opt/my-resources}/audit-rules"
+mkdir -p "$OUTD"
+
+# Dangerous-function / sink scan over the recovered code.
+[[ -d "$CODE" ]] || { echo "[!] no dir: $CODE"; exit 1; }
+[[ -n "$(find "$CODE" -type f -print -quit 2>/dev/null)" ]] \
+    || { echo "[!] $CODE is empty — run recon-sourcemaps / recon-loot first"; exit 1; }
+echo "[*] sink scan $CODE"
+: > "$OUTD/sinks.txt"
+
+# 1. semgrep security rulesets (primary, polyglot, JSON).
+if command -v semgrep >/dev/null 2>&1; then
+    semgrep scan --config p/security-audit --config p/owasp-top-ten \
+        --json -o "$OUTD/sinks.json" "$CODE" >/dev/null 2>&1 || true
+    echo "semgrep: p/security-audit + p/owasp-top-ten -> sinks.json" >> "$OUTD/sinks.txt"
+fi
+
+# 2. ast-grep custom polyglot patterns (best-effort). Binary is `ast-grep`,
+#    NEVER `sg` (/usr/bin/sg is the unrelated setgid tool).
+if command -v ast-grep >/dev/null 2>&1 && [[ -f "$RULES/sgconfig-sinks.yml" ]]; then
+    ast-grep scan -c "$RULES/sgconfig-sinks.yml" --json "$CODE" \
+        > "$OUTD/sinks_astgrep.json" 2>/dev/null || true
+    echo "ast-grep: $RULES/sgconfig-sinks.yml -> sinks_astgrep.json" >> "$OUTD/sinks.txt"
+fi
+
+# 3. weggli C/C++ semantic patterns (best-effort, C/C++ only).
+if command -v weggli >/dev/null 2>&1; then
+    for pat in 'strcpy(_,_);' 'memcpy(_,_,_);' 'system(_);' 'sprintf(_,_);' 'gets(_);'; do
+        weggli "{ $pat }" "$CODE" 2>/dev/null >> "$OUTD/sinks.txt" || true
+    done
+fi
+echo "[+] sinks -> $OUTD/sinks.json (+ sinks.txt)"

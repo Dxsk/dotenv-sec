@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# stub: emit a fixed semgrep JSON report to the -o path
+out=""
+while [[ $# -gt 0 ]]; do case "$1" in -o) out="$2"; shift 2;; *) shift;; esac; done
+cat > "$out" <<'JSON'
+{"results":[{"check_id":"js-eval","path":"a.js","start":{"line":3},"extra":{"severity":"ERROR","message":"eval sink"}}]}
+JSON

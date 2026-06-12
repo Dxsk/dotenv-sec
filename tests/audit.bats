@@ -1,0 +1,21 @@
+#!/usr/bin/env bats
+setup() {
+    BIN="${BATS_TEST_DIRNAME}/../exegol/my-resources/bin"
+    export PATH="${BATS_TEST_DIRNAME}/stubs:${PATH}"
+    WS="$(mktemp -d)"; export WORKSPACE="$WS"
+    mkdir -p "$WS/code"; echo 'eval(x)' > "$WS/code/a.js"
+}
+teardown() { rm -rf "$WS"; }
+
+@test "audit-sinks writes sinks.json from semgrep" {
+    run "$BIN/audit-sinks"
+    [ "$status" -eq 0 ]
+    [ -f "$WS/scans/code/sinks.json" ]
+    grep -q "js-eval" "$WS/scans/code/sinks.json"
+}
+
+@test "audit-sinks errors on empty code dir" {
+    rm -rf "$WS/code"; mkdir -p "$WS/code"
+    run "$BIN/audit-sinks"
+    [ "$status" -ne 0 ]
+}
