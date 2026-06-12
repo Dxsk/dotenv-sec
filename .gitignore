@@ -12,6 +12,10 @@ proxy-*/
 .vscode/
 .idea/
 
+# Python (audit-hotspots + tests)
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store
 Thumbs.db

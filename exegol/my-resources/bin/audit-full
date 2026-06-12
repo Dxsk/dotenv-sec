@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+WS="${WORKSPACE:-$PWD}"
+CODE="${1:-$WS/code}"
+
+# Full white-box audit pass over the code/ zone.
+echo "[*] full code audit for $CODE"
+audit-code "$CODE"       || echo "[i] audit-code step skipped"
+audit-sinks "$CODE"      || echo "[i] sinks step skipped"
+audit-endpoints "$CODE"  || echo "[i] endpoints step skipped"
+audit-hotspots           || echo "[i] hotspots step skipped"
+echo "[+] done -> ${WS}/scans/code (see hotspots.md)"

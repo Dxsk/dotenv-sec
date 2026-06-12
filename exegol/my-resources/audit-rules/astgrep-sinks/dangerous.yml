@@ -1,0 +1,20 @@
+id: js-eval
+language: javascript
+severity: warning
+message: dynamic eval (code-injection sink)
+rule:
+  pattern: eval($A)
+---
+id: js-innerhtml
+language: javascript
+severity: warning
+message: innerHTML assignment (DOM XSS sink)
+rule:
+  pattern: $X.innerHTML = $A
+---
+id: py-os-system
+language: python
+severity: warning
+message: os.system (command-injection sink)
+rule:
+  pattern: os.system($A)

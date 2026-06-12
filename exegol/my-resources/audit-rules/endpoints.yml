@@ -1,0 +1,44 @@
+# dotsec audit: backend route/handler definitions across common frameworks.
+# Used by audit-endpoints (semgrep --config). INFO severity: these are surface,
+# not vulns.
+rules:
+  - id: express-route
+    languages: [javascript, typescript]
+    severity: INFO
+    message: "express/koa route"
+    patterns:
+      - pattern-either:
+          - pattern: $APP.get("$P", ...)
+          - pattern: $APP.post("$P", ...)
+          - pattern: $APP.put("$P", ...)
+          - pattern: $APP.delete("$P", ...)
+          - pattern: $APP.patch("$P", ...)
+          - pattern: $APP.all("$P", ...)
+  - id: flask-fastapi-route
+    languages: [python]
+    severity: INFO
+    message: "flask/fastapi route"
+    patterns:
+      - pattern-either:
+          - pattern: "@$APP.route(\"$P\", ...)"
+          - pattern: "@$APP.get(\"$P\", ...)"
+          - pattern: "@$APP.post(\"$P\", ...)"
+          - pattern: "@$ROUTER.get(\"$P\", ...)"
+          - pattern: "@$ROUTER.post(\"$P\", ...)"
+  - id: spring-mapping
+    languages: [java]
+    severity: INFO
+    message: "spring request mapping"
+    patterns:
+      - pattern-either:
+          - pattern: "@RequestMapping(...)"
+          - pattern: "@GetMapping(...)"
+          - pattern: "@PostMapping(...)"
+  - id: go-http-handler
+    languages: [go]
+    severity: INFO
+    message: "go http handler"
+    patterns:
+      - pattern-either:
+          - pattern: $MUX.HandleFunc("$P", ...)
+          - pattern: http.HandleFunc("$P", ...)
