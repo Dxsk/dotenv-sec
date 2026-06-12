@@ -60,4 +60,11 @@ _dotsec_release osv-scanner \
     https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
     https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_arm64
 
+# ── code audit: structural search engines (audit-sinks/audit-endpoints) ──
+# ast-grep installs the `ast-grep` binary (it also ships `sg`, but /usr/bin/sg is
+# the unrelated setgid tool — scripts always call `ast-grep`).
+_dotsec_have ast-grep || npm install -g @ast-grep/cli >/dev/null 2>&1 || true
+# weggli: C/C++ semantic grep (slow cargo build, best-effort).
+_dotsec_have weggli || cargo install weggli --locked >/dev/null 2>&1 || true
+
 echo "[dotsec] tooling ready (go-built extras skipped if go < 1.23 — covered by fallbacks)."
